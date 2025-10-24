@@ -1,0 +1,10 @@
+{
+  "name": "@pminsight/config",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./eslint": "./eslint.config.js",
+    "./prettier": "./.prettierrc.json",
+    "./tailwind": "./tailwind.config.js"
+  }
+}

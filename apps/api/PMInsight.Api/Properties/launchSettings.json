@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "PMInsight.Api": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "https://localhost:7001;http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MONGODB_CONNECTION_STRING": "mongodb://localhost:27017",
+        "MONGODB_DATABASE_NAME": "pminsight",
+        "JWT_SECRET": "development-secret-key-change-in-production-min-32-chars",
+        "JWT_ISSUER": "PMInsight",
+        "JWT_AUDIENCE": "PMInsightApp",
+        "CORS_ORIGINS": "http://localhost:5173,http://localhost:3000"
+      }
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "app": {
+    "name": "PMInsight",
+    "tagline": "Project Management Practice System aligned with PMI standards"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "name": "Full Name",
+    "organizationName": "Organization Name",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back",
+    "quickActions": "Quick Actions",
+    "recentActivity": "Recent Activity",
+    "kpis": {
+      "activeProjects": "Active Projects",
+      "scheduleVariance": "Schedule Variance",
+      "costPerformance": "Cost Performance",
+      "openRisks": "Open Risks",
+      "pendingChanges": "Pending Changes"
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "create": "Create New Project",
+    "name": "Project Name",
+    "code": "Project Code",
+    "description": "Description",
+    "status": "Status",
+    "owner": "Owner",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "statuses": {
+      "draft": "Draft",
+      "initiating": "Initiating",
+      "planning": "Planning",
+      "executing": "Executing",
+      "monitoring": "Monitoring",
+      "closing": "Closing",
+      "closed": "Closed",
+      "on-hold": "On Hold",
+      "cancelled": "Cancelled"
+    }
+  },
+  "risks": {
+    "title": "Risks",
+    "create": "Add Risk",
+    "probability": "Probability",
+    "impact": "Impact",
+    "score": "Risk Score",
+    "strategy": "Response Strategy",
+    "levels": {
+      "very-low": "Very Low",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "very-high": "Very High"
+    },
+    "strategies": {
+      "avoid": "Avoid",
+      "transfer": "Transfer",
+      "mitigate": "Mitigate",
+      "accept": "Accept"
+    }
+  },
+  "issues": {
+    "title": "Issues",
+    "create": "Add Issue",
+    "priority": "Priority",
+    "priorities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "actions": "Actions",
+    "loading": "Loading...",
+    "noData": "No data available",
+    "error": "An error occurred",
+    "success": "Success"
+  }
+}

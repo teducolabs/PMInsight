@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: pminsight-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: pminsight
+      MONGO_INITDB_ROOT_PASSWORD: pminsight123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - pminsight-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pminsight-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pminsight-network
+
+  # Uncomment to run backend in Docker
+  # api:
+  #   build:
+  #     context: ./apps/api
+  #     dockerfile: Dockerfile
+  #   container_name: pminsight-api
+  #   restart: unless-stopped
+  #   ports:
+  #     - "7001:8080"
+  #   environment:
+  #     - MONGODB_CONNECTION_STRING=mongodb://pminsight:pminsight123@mongodb:27017
+  #     - MONGODB_DATABASE_NAME=pminsight
+  #     - JWT_SECRET=${JWT_SECRET}
+  #     - REDIS_CONNECTION_STRING=redis:6379
+  #   depends_on:
+  #     - mongodb
+  #     - redis
+  #   networks:
+  #     - pminsight-network
+
+  # Uncomment to run Seq for log viewing
+  # seq:
+  #   image: datalust/seq:latest
+  #   container_name: pminsight-seq
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5341:80"
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #   volumes:
+  #     - seq_data:/data
+  #   networks:
+  #     - pminsight-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+  # seq_data:
+
+networks:
+  pminsight-network:
+    driver: bridge

@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+*.log
+
+# .NET
+bin/
+obj/
+*.suo
+*.user
+*.userprefs
+.vs/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+appsettings.Development.json
+appsettings.*.json
+!appsettings.json
+
+# IDEs
+.idea/
+*.iml
+.DS_Store
+
+# Testing
+coverage/
+.nyc_output/
+TestResults/
+
+# Temporary
+*.tmp
+*.temp
+.cache/
+
+# Logs
+logs/
+*.log
+
+# OS
+Thumbs.db
