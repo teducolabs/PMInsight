@@ -17,7 +17,7 @@ This document provides step-by-step instructions to complete the PMInsight syste
 - [x] Basic routing structure
 
 ### 🔄 In Progress / To Do
-- [ ] Authentication & Authorization (JWT, 2FA, OAuth)
+- [x] Authentication & Authorization (JWT, 2FA, OAuth)
 - [ ] API Controllers for all modules
 - [ ] React UI components (shadcn/ui)
 - [ ] Pages & Features implementation

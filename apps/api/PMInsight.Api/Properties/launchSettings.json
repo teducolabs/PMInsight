@@ -8,7 +8,7 @@
       "applicationUrl": "https://localhost:7001;http://localhost:5000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "MONGODB_CONNECTION_STRING": "mongodb://localhost:27017",
+        "MONGODB_CONNECTION_STRING": "mongodb+srv://pminsight_db_user:lQ4VeruhHBoDOx7F@cluster0.jjmncpy.mongodb.net/?appName=Cluster0",
         "MONGODB_DATABASE_NAME": "pminsight",
         "JWT_SECRET": "development-secret-key-change-in-production-min-32-chars",
         "JWT_ISSUER": "PMInsight",

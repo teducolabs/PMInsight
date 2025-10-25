@@ -1,0 +1,63 @@
+using PMInsight.Domain.Enums;
+
+namespace PMInsight.Application.Stakeholders.Dtos;
+
+public record StakeholderDto
+{
+    public required string Id { get; init; }
+    public required string ProjectId { get; init; }
+    public required string Name { get; init; }
+    public required string Role { get; init; }
+    public required string Influence { get; init; }
+    public required string Interest { get; init; }
+    public string? EngagementPlan { get; init; }
+    public required IEnumerable<ContactDto> Contacts { get; init; }
+    public required DateTime CreatedAt { get; init; }
+    public required DateTime UpdatedAt { get; init; }
+}
+
+public record ContactDto
+{
+    public required string Type { get; init; }
+    public required string Value { get; init; }
+}
+
+public record CreateStakeholderDto
+{
+    public required string ProjectId { get; init; }
+    public required string Name { get; init; }
+    public required string Role { get; init; }
+    public required InfluenceLevel Influence { get; init; }
+    public required InterestLevel Interest { get; init; }
+    public string? EngagementPlan { get; init; }
+    public required IEnumerable<CreateContactDto> Contacts { get; init; }
+}
+
+public record CreateContactDto
+{
+    public required ContactType Type { get; init; }
+    public required string Value { get; init; }
+}
+
+public record UpdateStakeholderDto
+{
+    public required string Name { get; init; }
+    public required string Role { get; init; }
+    public required InfluenceLevel Influence { get; init; }
+    public required InterestLevel Interest { get; init; }
+    public string? EngagementPlan { get; init; }
+    public required IEnumerable<CreateContactDto> Contacts { get; init; }
+}
+
+public record StakeholderMatrixDto
+{
+    public required IEnumerable<StakeholderGridCell> Grid { get; init; }
+    public required int TotalCount { get; init; }
+}
+
+public record StakeholderGridCell
+{
+    public required string Influence { get; init; }
+    public required string Interest { get; init; }
+    public required IEnumerable<StakeholderDto> Stakeholders { get; init; }
+}

@@ -2,7 +2,7 @@ using PMInsight.Domain.Common;
 
 namespace PMInsight.Domain.Entities;
 
-public class Organization : BaseEntity
+public class Organization : TenantEntity
 {
     public required string Name { get; set; }
     public required string Slug { get; set; }
