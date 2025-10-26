@@ -36,8 +36,12 @@ export function LoginPage() {
     try {
       setIsLoading(true);
       setError('');
+      console.log('LoginPage: Submitting login form');
       await login(data.email, data.password, data.twoFactorCode);
+      console.log('LoginPage: Login successful');
+      // Navigation is handled by AuthContext
     } catch (err: any) {
+      console.error('LoginPage: Login error', err);
       if (err.message?.includes('2FA') || err.message?.includes('two factor')) {
         setRequires2FA(true);
         setError('Vui lòng nhập mã xác thực 2 yếu tố');

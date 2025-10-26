@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '@/lib/api/client';
 
 interface User {
   id: string;
@@ -47,9 +47,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const token = localStorage.getItem('accessToken');
       if (token) {
         try {
-          const response = await axios.get('/api/v1/auth/me', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const response = await apiClient.get('/auth/me');
           setUser(response.data);
         } catch (error) {
           localStorage.removeItem('accessToken');
@@ -64,37 +62,76 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (email: string, password: string, twoFactorCode?: string) => {
     try {
-      const response = await axios.post('/api/v1/auth/login', {
+      console.log('Attempting login with:', { email, hasTwoFactorCode: !!twoFactorCode });
+      
+      const response = await apiClient.post('/auth/login', {
         email,
         password,
         twoFactorCode
       });
 
-      const { accessToken, refreshToken, user: userData } = response.data;
+      console.log('Login response:', response.data);
+
+      const data = response.data;
       
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      // Backend returns flat structure: { userId, organizationId, name, requiresTwoFactor, accessToken, refreshToken }
+      if (!data.accessToken) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Check if 2FA is required but no code was provided
+      if (data.requiresTwoFactor && !twoFactorCode) {
+        throw new Error('Two-factor authentication required');
+      }
+
+      // Transform backend response to frontend user structure
+      const userData: User = {
+        id: data.userId,
+        email: email, // Backend doesn't return email, use the input
+        name: data.name,
+        roles: [], // TODO: Backend should return roles
+        organizationId: data.organizationId
+      };
+
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
       setUser(userData);
       
+      console.log('User set, navigating to dashboard...');
       navigate('/dashboard');
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Login failed');
+      console.error('Login error:', error);
+      throw new Error(error.response?.data?.message || error.message || 'Login failed');
     }
   };
 
   const register = async (email: string, password: string, name: string, organizationName: string) => {
     try {
-      const response = await axios.post('/api/v1/auth/register', {
+      const response = await apiClient.post('/auth/register', {
         email,
         password,
         name,
         organizationName
       });
 
-      const { accessToken, refreshToken, user: userData } = response.data;
+      const data = response.data;
       
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      // Backend returns flat structure: { userId, organizationId, accessToken, refreshToken }
+      if (!data.accessToken) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Transform backend response to frontend user structure
+      const userData: User = {
+        id: data.userId,
+        email: email, // Backend doesn't return email, use the input
+        name: name, // Backend doesn't return name, use the input
+        roles: [], // TODO: Backend should return roles
+        organizationId: data.organizationId
+      };
+      
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
       setUser(userData);
       
       navigate('/dashboard');
@@ -107,7 +144,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);
-    navigate('/auth/login');
+    navigate('/login');
   };
 
   const refreshToken = async () => {
@@ -115,7 +152,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const token = localStorage.getItem('refreshToken');
       if (!token) throw new Error('No refresh token');
 
-      const response = await axios.post('/api/v1/auth/refresh', { refreshToken: token });
+      const response = await apiClient.post('/auth/refresh', { refreshToken: token });
       const { accessToken, refreshToken: newRefreshToken } = response.data;
       
       localStorage.setItem('accessToken', accessToken);

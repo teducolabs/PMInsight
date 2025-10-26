@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PMInsight.Application.Auth.Commands;
+using PMInsight.Application.Auth.Queries;
 
 namespace PMInsight.Api.Controllers;
 
@@ -32,6 +33,16 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<LoginResult>> Login(LoginCommand command)
     {
         var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(GetCurrentUserResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<GetCurrentUserResult>> GetMe()
+    {
+        var result = await _mediator.Send(new GetCurrentUserQuery());
         return Ok(result);
     }
 
