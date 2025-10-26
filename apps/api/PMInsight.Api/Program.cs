@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using PMInsight.Infrastructure.Persistence;
 using PMInsight.Application.Services;
+using PMInsight.Application.Common.Interfaces;
 using PMInsight.Domain.Entities;
 using PMInsight.Domain.Common;
 using PMInsight.Api.Infrastructure;
@@ -36,16 +37,48 @@ builder.Services.AddSingleton<IMongoContext>(sp => new MongoContext(mongoConnect
 
 // Tenant Context
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+
+// HttpContextAccessor for 2FA handlers
+builder.Services.AddHttpContextAccessor();
+
+// Current User Service
+builder.Services.AddScoped<ICurrentUserService, PMInsight.Infrastructure.Services.CurrentUserService>();
+
+// Register repositories for all entities
 builder.Services.AddScoped<IRepository<User>>(sp => {
     var context = sp.GetRequiredService<IMongoContext>();
     var tenantContext = sp.GetRequiredService<ITenantContext>();
-    return new TenantRepository<User>(context, tenantContext.OrganizationId);
+    return new TenantRepository<User>(context, tenantContext.OrganizationId, "Users");
 });
 
 builder.Services.AddScoped<IRepository<Organization>>(sp => {
     var context = sp.GetRequiredService<IMongoContext>();
     var tenantContext = sp.GetRequiredService<ITenantContext>();
-    return new TenantRepository<Organization>(context, tenantContext.OrganizationId);
+    return new TenantRepository<Organization>(context, tenantContext.OrganizationId, "Organizations");
+});
+
+builder.Services.AddScoped<IRepository<Stakeholder>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<Stakeholder>(context, tenantContext.OrganizationId, "Stakeholders");
+});
+
+builder.Services.AddScoped<IRepository<Project>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<Project>(context, tenantContext.OrganizationId, "Projects");
+});
+
+builder.Services.AddScoped<IRepository<Risk>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<Risk>(context, tenantContext.OrganizationId, "Risks");
+});
+
+builder.Services.AddScoped<IRepository<Issue>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<Issue>(context, tenantContext.OrganizationId, "Issues");
 });
 
 // CORS
@@ -82,6 +115,14 @@ builder.Services.AddAuthorization();
 // Password hasher
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+
+// Seed Service
+builder.Services.AddScoped<ISeedService>(sp =>
+{
+    var context = sp.GetRequiredService<IMongoContext>();
+    var passwordHasher = sp.GetRequiredService<IPasswordHasher<User>>();
+    return new PMInsight.Infrastructure.Seed.SeedService(context.Database, passwordHasher);
+});
 
 // Health Checks
 builder.Services.AddSingleton<MongoHealthCheck>(sp =>
@@ -158,6 +199,13 @@ app.MapHealthChecks("/health");
 if (app.Environment.IsDevelopment())
 {
     await StartupTasks.ConfigureMongoIndexesAsync(app.Services);
+    
+    // Run seed data
+    using (var scope = app.Services.CreateScope())
+    {
+        var seedService = scope.ServiceProvider.GetRequiredService<ISeedService>();
+        await seedService.SeedAsync();
+    }
 }
 
 app.Run();

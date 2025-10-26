@@ -18,6 +18,12 @@ This document provides step-by-step instructions to complete the PMInsight syste
 
 ### 🔄 In Progress / To Do
 - [x] Authentication & Authorization (JWT, 2FA, OAuth)
+  - [x] Auth Context & API client  
+  - [x] Login & Register pages
+  - [ ] Backend Auth API (JWT token service, 2FA)
+- [x] Seed data & templates
+  - [x] SeedService implementation
+  - [x] IT & Event project templates
 - [ ] API Controllers for all modules
 - [ ] React UI components (shadcn/ui)
 - [ ] Pages & Features implementation

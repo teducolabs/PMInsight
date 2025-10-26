@@ -1,0 +1,75 @@
+{
+  "name": "Event Project Template",
+  "description": "Template for event management projects",
+  "wbs": [
+    {
+      "name": "1. Event Planning",
+      "children": [
+        { "name": "1.1 Event Concept", "children": [] },
+        { "name": "1.2 Budget Planning", "children": [] },
+        { "name": "1.3 Timeline Development", "children": [] }
+      ]
+    },
+    {
+      "name": "2. Venue & Logistics",
+      "children": [
+        { "name": "2.1 Venue Selection", "children": [] },
+        { "name": "2.2 Equipment Rental", "children": [] },
+        { "name": "2.3 Catering Arrangements", "children": [] }
+      ]
+    },
+    {
+      "name": "3. Marketing & Promotion",
+      "children": [
+        { "name": "3.1 Marketing Strategy", "children": [] },
+        { "name": "3.2 Social Media Campaign", "children": [] },
+        { "name": "3.3 Registration System", "children": [] }
+      ]
+    },
+    {
+      "name": "4. Event Execution",
+      "children": [
+        { "name": "4.1 Setup & Preparation", "children": [] },
+        { "name": "4.2 Event Day Management", "children": [] },
+        { "name": "4.3 Teardown & Cleanup", "children": [] }
+      ]
+    },
+    {
+      "name": "5. Post-Event",
+      "children": [
+        { "name": "5.1 Feedback Collection", "children": [] },
+        { "name": "5.2 Financial Reconciliation", "children": [] },
+        { "name": "5.3 Lessons Learned", "children": [] }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "title": "Weather Risk",
+      "cause": "Unpredictable weather conditions",
+      "event": "Bad weather on event day",
+      "effect": "Low attendance or event cancellation",
+      "probability": "low",
+      "impact": "high",
+      "strategy": "mitigate"
+    },
+    {
+      "title": "Low Attendance",
+      "cause": "Insufficient marketing or competing events",
+      "event": "Fewer attendees than expected",
+      "effect": "Revenue shortfall and poor ROI",
+      "probability": "medium",
+      "impact": "high",
+      "strategy": "mitigate"
+    },
+    {
+      "title": "Vendor No-Show",
+      "cause": "Vendor reliability issues",
+      "event": "Key vendor fails to deliver",
+      "effect": "Service disruption and attendee dissatisfaction",
+      "probability": "low",
+      "impact": "medium",
+      "strategy": "mitigate"
+    }
+  ]
+}
