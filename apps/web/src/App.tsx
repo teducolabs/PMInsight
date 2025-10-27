@@ -1,10 +1,12 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './lib/context/AuthContext';
+import { AppLayout } from './components/layout/AppLayout';
 
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { StakeholdersPage } from './pages/stakeholders/StakeholdersPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -17,7 +19,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return user ? <>{children}</> : <Navigate to="/login" replace />;
+  return user ? <AppLayout>{children}</AppLayout> : <Navigate to="/login" replace />;
 }
 
 function App() {
@@ -33,6 +35,14 @@ function App() {
         element={
           <PrivateRoute>
             <DashboardPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/stakeholders"
+        element={
+          <PrivateRoute>
+            <StakeholdersPage />
           </PrivateRoute>
         }
       />
