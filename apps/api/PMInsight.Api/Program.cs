@@ -81,6 +81,18 @@ builder.Services.AddScoped<IRepository<Issue>>(sp => {
     return new TenantRepository<Issue>(context, tenantContext.OrganizationId, "Issues");
 });
 
+builder.Services.AddScoped<IRepository<ScheduleActivity>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<ScheduleActivity>(context, tenantContext.OrganizationId, "ScheduleActivities");
+});
+
+builder.Services.AddScoped<IRepository<WBS>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<WBS>(context, tenantContext.OrganizationId, "WBSs");
+});
+
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -176,7 +188,12 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Token
 builder.Services.AddValidatorsFromAssembly(typeof(TokenService).Assembly);
 
 // Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 
 var app = builder.Build();
 

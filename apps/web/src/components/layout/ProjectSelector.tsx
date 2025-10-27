@@ -1,5 +1,7 @@
 import { useProject } from '@/lib/context/ProjectContext';
-import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { projectApi } from '@/lib/api/project';
+import { useQuery } from '@tanstack/react-query';
+import { Check, ChevronsUpDown, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -17,22 +19,24 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-
-// TODO: Replace with real data from API
-const MOCK_PROJECTS = [
-  { id: '1', name: 'Website Redesign', code: 'WEB-001' },
-  { id: '2', name: 'Mobile App Development', code: 'MOB-001' },
-  { id: '3', name: 'Marketing Campaign', code: 'MKT-001' },
-];
+import type { Project } from '@/types/project';
 
 export function ProjectSelector() {
   const [open, setOpen] = useState(false);
   const { currentProjectId, currentProjectName, setCurrentProject } = useProject();
   const navigate = useNavigate();
 
-  const handleSelectProject = (project: typeof MOCK_PROJECTS[0]) => {
+  // Fetch projects from API
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectApi.getAll,
+  });
+
+  const handleSelectProject = (project: Project) => {
     setCurrentProject(project.id, project.name);
     setOpen(false);
+    // Navigate to project detail page
+    navigate(`/projects/${project.id}`);
   };
 
   return (
@@ -43,8 +47,14 @@ export function ProjectSelector() {
           role="combobox"
           aria-expanded={open}
           className="w-[300px] justify-between"
+          disabled={isLoading}
         >
-          {currentProjectName ? (
+          {isLoading ? (
+            <span className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Đang tải...
+            </span>
+          ) : currentProjectName ? (
             <span className="flex items-center gap-2">
               <span className="font-medium">{currentProjectName}</span>
             </span>
@@ -58,9 +68,17 @@ export function ProjectSelector() {
         <Command>
           <CommandInput placeholder="Tìm dự án..." />
           <CommandList>
-            <CommandEmpty>Không tìm thấy dự án.</CommandEmpty>
+            <CommandEmpty>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                'Không tìm thấy dự án.'
+              )}
+            </CommandEmpty>
             <CommandGroup heading="Dự án của bạn">
-              {MOCK_PROJECTS.map((project) => (
+              {projects.map((project) => (
                 <CommandItem
                   key={project.id}
                   value={project.name}
@@ -86,11 +104,11 @@ export function ProjectSelector() {
               className="w-full justify-start"
               onClick={() => {
                 setOpen(false);
-                navigate('/projects/new');
+                navigate('/projects');
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Tạo dự án mới
+              Xem tất cả dự án
             </Button>
           </div>
         </Command>

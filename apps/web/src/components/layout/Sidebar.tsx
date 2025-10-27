@@ -15,6 +15,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useProject } from '@/lib/context/ProjectContext';
 
 interface NavItem {
   name: string;
@@ -27,7 +28,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Dự án', href: '/projects', icon: FolderKanban },
   { name: 'Stakeholders', href: '/stakeholders', icon: Users, badge: 2 },
-  { name: 'WBS', href: '/wbs', icon: Network },
+  { name: 'WBS & Schedule', href: '/wbs', icon: Network },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Rủi ro', href: '/risks', icon: AlertTriangle, badge: 5 },
   { name: 'Issues', href: '/issues', icon: ShieldAlert, badge: 3 },
@@ -39,12 +40,26 @@ const navigation: NavItem[] = [
 ];
 
 export function Sidebar() {
+  const { currentProjectName } = useProject();
+
   return (
     <aside className="flex w-64 flex-col border-r bg-white">
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
         <h1 className="text-xl font-bold text-blue-600">PMInsight</h1>
       </div>
+
+      {/* Current Project Banner */}
+      {currentProjectName && (
+        <div className="border-b bg-blue-50 px-4 py-3">
+          <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">
+            Dự án hiện tại
+          </p>
+          <p className="text-sm font-semibold text-blue-900 truncate mt-1">
+            {currentProjectName}
+          </p>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto p-4">

@@ -114,6 +114,27 @@ public enum DependencyType
     SF  // Start-to-Finish
 }
 
+public enum ActivityStatus
+{
+    NotStarted,
+    InProgress,
+    Completed,
+    OnHold,
+    Cancelled
+}
+
+public enum ConstraintType
+{
+    ASAP,  // As Soon As Possible (most flexible)
+    ALAP,  // As Late As Possible
+    SNET,  // Start No Earlier Than
+    SNLT,  // Start No Later Than
+    FNET,  // Finish No Earlier Than
+    FNLT,  // Finish No Later Than
+    MSO,   // Must Start On (rigid)
+    MFO    // Must Finish On (rigid)
+}
+
 public enum ContactType
 {
     Email,

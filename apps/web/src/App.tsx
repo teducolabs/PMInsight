@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { StakeholdersPage } from './pages/stakeholders/StakeholdersPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { ProjectDetailPage } from './pages/projects/ProjectDetailPage';
+import { WBSPage } from './pages/wbs';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -61,6 +62,14 @@ function App() {
         element={
           <PrivateRoute>
             <StakeholdersPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/wbs"
+        element={
+          <PrivateRoute>
+            <WBSPage />
           </PrivateRoute>
         }
       />

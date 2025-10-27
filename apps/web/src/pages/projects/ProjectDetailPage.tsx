@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { projectApi } from '@/lib/api/project';
+import { SchedulePage } from '@/pages/schedule';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -15,7 +16,6 @@ import {
   AlertTriangle,
   GitBranch,
   CheckCircle,
-  TrendingUp,
   Settings,
   BarChart3,
   Clock,
@@ -215,8 +215,8 @@ export function ProjectDetailPage() {
             Stakeholders
           </TabsTrigger>
           <TabsTrigger value="wbs">
-            <GitBranch className="h-4 w-4 mr-2" />
-            WBS
+            <Calendar className="h-4 w-4 mr-2" />
+            WBS & Schedule
           </TabsTrigger>
           <TabsTrigger value="risks">
             <AlertTriangle className="h-4 w-4 mr-2" />
@@ -371,17 +371,9 @@ export function ProjectDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* WBS Tab */}
+        {/* WBS & Schedule Tab */}
         <TabsContent value="wbs">
-          <Card>
-            <CardHeader>
-              <CardTitle>Work Breakdown Structure (WBS)</CardTitle>
-              <CardDescription>Phân rã công việc thành các phần nhỏ hơn</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-500">Tính năng đang phát triển...</p>
-            </CardContent>
-          </Card>
+          <SchedulePage />
         </TabsContent>
 
         {/* Risks Tab */}

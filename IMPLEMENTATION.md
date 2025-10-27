@@ -15,26 +15,151 @@ This document provides step-by-step instructions to complete the PMInsight syste
 - [x] React frontend structure with Vite
 - [x] i18n setup (vi-VN, en-US)
 - [x] Basic routing structure
-
-### 🔄 In Progress / To Do
 - [x] Authentication & Authorization (JWT, 2FA, OAuth)
   - [x] Auth Context & API client  
   - [x] Login & Register pages
-  - [ ] Backend Auth API (JWT token service, 2FA)
+  - [x] Backend Auth API (JWT token service)
 - [x] Seed data & templates
   - [x] SeedService implementation
-  - [x] IT & Event project templates
-- [ ] API Controllers for all modules
-- [ ] React UI components (shadcn/ui)
-- [ ] Pages & Features implementation
+  - [x] IT & Event project templates (6 sample projects)
+- [x] Projects Module (Complete)
+  - [x] Backend: CQRS handlers (Create, Update, GetAll, GetById, GetStats, SetBaseline)
+  - [x] Frontend: ProjectsPage with table, filters, stats cards
+  - [x] Frontend: ProjectDetailPage with tabs
+  - [x] Multi-tenancy with TenantContextMiddleware
+- [x] Activities/Schedule Module (Backend Complete)
+  - [x] ScheduleActivity entity (renamed from Task)
+  - [x] ActivityStatus, DependencyType (FS/SS/FF/SF), ConstraintType enums
+  - [x] CQRS Commands: Create, Update, AddDependency, CalculateCriticalPath
+  - [x] CQRS Queries: GetActivities, GetById, GetCriticalPath
+  - [x] CPM Algorithm implementation (Forward/Backward pass, Float calculation)
+  - [x] ActivitiesController with all endpoints
+  - [x] Frontend: TypeScript types (Activity, ActivityDependency, etc.)
+  - [x] Frontend: activityApi.ts with CRUD + CPM methods
+  - [x] Frontend: activityUtils.ts helper functions
+
+### 🔄 In Progress / To Do
+- [ ] Activities/Schedule Module (Frontend UI)
+  - [ ] Custom Gantt Chart component (không dùng thư viện ngoài)
+  - [ ] Schedule/Gantt page with views (Gantt/List/Critical Path)
+  - [ ] Activity CRUD dialogs
+  - [ ] Dependency management UI
+- [ ] WBS Module
+  - [ ] Backend: CQRS handlers
+  - [ ] Frontend: Tree view component
+  - [ ] Drag-and-drop support
+- [ ] Stakeholders Module
+- [ ] Risks Module
+- [ ] Issues Module
+- [ ] Changes Module
+- [ ] Budget & EVM Module
+- [ ] React UI components (shadcn/ui) - Continue
 - [ ] Background jobs (Hangfire)
 - [ ] File storage (R2)
-- [ ] Seed data & templates
 - [ ] Tests & CI/CD
 
 ---
 
-## 🛠️ Next Steps
+## � Activities/Schedule Module Implementation (COMPLETED Backend)
+
+### Backend Architecture
+
+#### **1. Domain Layer** (`ScheduleActivity.cs`)
+```csharp
+public class ScheduleActivity : TenantEntity
+{
+    // Schedule: PlannedStartDate, PlannedEndDate, DurationDays, Actual dates
+    // Dependencies: Predecessors/Successors (FS/SS/FF/SF) with Lead/Lag
+    // CPM: IsCritical, TotalFloat, FreeFloat, EarlyStart/Finish, LateStart/Finish
+    // Resources: AssignedUserIds, EstimatedHours, ActualHours
+    // Cost: PlannedCost, ActualCost
+    // Progress: PercentComplete, Status
+    // Constraints: ASAP, ALAP, SNET, SNLT, FNET, FNLT, MSO, MFO
+    // Baseline: Snapshot for EVM
+}
+```
+
+#### **2. CPM Algorithm** (`CalculateCriticalPathCommandHandler.cs`)
+- **Forward Pass**: Calculate Early Start (ES) & Early Finish (EF)
+  - Start activities: ES = project start date or planned start
+  - Other activities: ES = max(predecessor EF + lag)
+  - EF = ES + duration
+- **Backward Pass**: Calculate Late Start (LS) & Late Finish (LF)
+  - End activities: LF = EF (no float)
+  - Other activities: LF = min(successor LS - lag)
+  - LS = LF - duration
+- **Float Calculation**:
+  - Total Float = LS - ES (slack time)
+  - Free Float = min(successor ES) - current EF
+  - Critical if Total Float ≈ 0
+- **Dependency Support**: FS, SS, FF, SF with positive (lag) or negative (lead) values
+
+#### **3. API Endpoints**
+```
+GET    /api/v1/projects/{projectId}/activities              # List with filters
+GET    /api/v1/projects/{projectId}/activities/{id}         # Get by ID
+GET    /api/v1/projects/{projectId}/activities/critical-path # Get critical path
+POST   /api/v1/projects/{projectId}/activities              # Create
+PUT    /api/v1/projects/{projectId}/activities/{id}         # Update
+POST   /api/v1/projects/{projectId}/activities/{id}/dependencies # Add dependency
+POST   /api/v1/projects/{projectId}/activities/calculate-critical-path # Trigger CPM
+```
+
+### Frontend Architecture
+
+#### **TypeScript Types** (`types/activity.ts`)
+- `Activity` interface (40+ fields)
+- `ActivityStatus`, `DependencyType`, `ConstraintType` enums
+- `ActivityDependency`, `ActivityConstraint`, `ActivityBaseline` interfaces
+- `CreateActivityDto`, `UpdateActivityDto`, `AddDependencyDto`
+
+#### **API Client** (`lib/api/activity.ts`)
+- CRUD operations: `getAll`, `getById`, `create`, `update`, `delete`
+- Dependencies: `addDependency`, `removeDependency`
+- CPM: `getCriticalPath`, `calculateCriticalPath`
+- Helpers: `updateProgress`, `getByWbsNode`, `getStats`, `toGanttFormat`
+
+#### **Utilities** (`lib/utils/activityUtils.ts`)
+- Display: `getActivityStatusColor`, `getActivityStatusLabel`
+- Calculations: `isActivityOverdue`, `calculateCostVariance`, `calculateScheduleVariance`
+- Health: `getActivityHealth` (Green/Yellow/Red)
+- Formatting: `formatFloat`, `formatLag`
+- Sorting/Filtering: `sortByEarlyStart`, `getCriticalActivities`, `groupByWbsNode`
+
+### Custom Gantt Chart Component (TODO)
+
+**Why custom component?**
+- Full control over rendering logic
+- Easy to customize for PMI learners (tooltips, color coding)
+- No external library dependencies
+- Tailored for critical path visualization
+
+**Component Structure**:
+```
+components/schedule/
+├── GanttChart.tsx           # Main container
+├── GanttHeader.tsx          # Timeline header (months/weeks/days)
+├── GanttGrid.tsx            # Background grid lines
+├── GanttTask.tsx            # Task bar with progress
+├── GanttDependency.tsx      # Arrow lines between tasks
+├── GanttTimeline.tsx        # Today marker
+└── GanttTooltip.tsx         # Hover info
+```
+
+**Features**:
+- ✅ Horizontal timeline (months → weeks → days)
+- ✅ Task bars with progress indicators
+- ✅ Critical path highlighting (red bars)
+- ✅ Dependency arrows (FS/SS/FF/SF)
+- ✅ Drag to adjust dates (future)
+- ✅ Zoom levels (day/week/month)
+- ✅ Today marker line
+- ✅ WBS grouping
+- ✅ Tooltips with CPM info (ES/EF/LS/LF/Float)
+
+---
+
+## �🛠️ Next Steps
 
 ### Phase 1: Core Authentication (Week 1)
 

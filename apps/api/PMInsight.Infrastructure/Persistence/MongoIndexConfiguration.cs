@@ -55,21 +55,21 @@ public static class MongoIndexConfiguration
             )
         });
 
-        // Tasks
-        var tasksCollection = context.GetCollection<Domain.Entities.Task>();
-        await tasksCollection.Indexes.CreateManyAsync(new[]
+        // Schedule Activities
+        var activitiesCollection = context.GetCollection<ScheduleActivity>();
+        await activitiesCollection.Indexes.CreateManyAsync(new[]
         {
-            new CreateIndexModel<Domain.Entities.Task>(
-                Builders<Domain.Entities.Task>.IndexKeys
+            new CreateIndexModel<ScheduleActivity>(
+                Builders<ScheduleActivity>.IndexKeys
                     .Ascending(x => x.OrganizationId)
                     .Ascending(x => x.ProjectId)
                     .Descending(x => x.CreatedAt)
             ),
-            new CreateIndexModel<Domain.Entities.Task>(
-                Builders<Domain.Entities.Task>.IndexKeys
+            new CreateIndexModel<ScheduleActivity>(
+                Builders<ScheduleActivity>.IndexKeys
                     .Ascending(x => x.OrganizationId)
                     .Ascending(x => x.ProjectId)
-                    .Ascending("Assignees")
+                    .Ascending("AssignedUserIds")
             )
         });
 
@@ -115,21 +115,6 @@ public static class MongoIndexConfiguration
                     .Ascending(x => x.OrganizationId)
                     .Ascending(x => x.ProjectId)
                     .Ascending(x => x.Status)
-            )
-        });
-
-        // Activities (with TTL if configured)
-        var activitiesCollection = context.GetCollection<Activity>();
-        await activitiesCollection.Indexes.CreateManyAsync(new[]
-        {
-            new CreateIndexModel<Activity>(
-                Builders<Activity>.IndexKeys
-                    .Ascending(x => x.OrganizationId)
-                    .Descending(x => x.CreatedAt)
-            ),
-            new CreateIndexModel<Activity>(
-                Builders<Activity>.IndexKeys.Ascending(x => x.CreatedAt),
-                new CreateIndexOptions { ExpireAfter = TimeSpan.FromDays(90) } // TTL 90 days
             )
         });
 
