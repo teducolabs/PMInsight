@@ -2,7 +2,8 @@ import { useState, useMemo, useRef } from 'react';
 import { useProject } from '@/lib/context/ProjectContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp, Edit2 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { Activity } from '@/types/activity';
@@ -45,6 +46,10 @@ export function WBSPage() {
     newEndDate?: Date;
   } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  
+  // Progress edit state
+  const [editingProgress, setEditingProgress] = useState<string | null>(null);
+  const [progressValue, setProgressValue] = useState<string>('');
   
   // Mock activities - use state to allow updates
   const [mockActivities, setMockActivities] = useState<Activity[]>(() => 
@@ -515,16 +520,16 @@ export function WBSPage() {
       const { activity, depth } = row;
       const startDate = activity.plannedStartDate ? new Date(activity.plannedStartDate) : null;
       const endDate = activity.plannedEndDate ? new Date(activity.plannedEndDate) : null;
+      const isEditingThis = editingProgress === activity.id;
 
       return (
         <div
           key={`activity-${activity.id}`}
-          className="flex items-center gap-2 py-2 px-4 hover:bg-blue-50 border-b bg-gray-50/50 cursor-pointer"
+          className="flex items-center gap-2 py-2 px-4 hover:bg-blue-50 border-b bg-gray-50/50"
           style={{ 
             paddingLeft: `${depth * 24 + 16}px`,
             height: ROW_HEIGHT,
           }}
-          onClick={() => console.log('Edit activity', activity.id)}
         >
           <span className="w-5 flex-shrink-0" />
           <ListChecks className="w-4 h-4 text-green-600 flex-shrink-0" />
@@ -532,6 +537,65 @@ export function WBSPage() {
             {activity.code}
           </span>
           <span className="text-sm truncate flex-1">{activity.name}</span>
+          
+          {/* Progress edit */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isEditingThis ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={progressValue}
+                  onChange={(e) => setProgressValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const newProgress = Math.max(0, Math.min(100, parseInt(progressValue) || 0));
+                      setMockActivities(prev => prev.map(a =>
+                        a.id === activity.id ? { ...a, percentComplete: newProgress } : a
+                      ));
+                      setEditingProgress(null);
+                      console.log('✅ Updated progress:', activity.id, newProgress + '%');
+                    } else if (e.key === 'Escape') {
+                      setEditingProgress(null);
+                    }
+                  }}
+                  className="w-16 h-7 text-xs"
+                  autoFocus
+                />
+                <span className="text-xs text-gray-500">%</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2"
+                  onClick={() => {
+                    const newProgress = Math.max(0, Math.min(100, parseInt(progressValue) || 0));
+                    setMockActivities(prev => prev.map(a =>
+                      a.id === activity.id ? { ...a, percentComplete: newProgress } : a
+                    ));
+                    setEditingProgress(null);
+                    console.log('✅ Updated progress:', activity.id, newProgress + '%');
+                  }}
+                >
+                  ✓
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setEditingProgress(activity.id);
+                  setProgressValue(activity.percentComplete.toString());
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-100 transition-colors"
+              >
+                <span className="text-sm font-semibold text-blue-600">
+                  {activity.percentComplete}%
+                </span>
+                <Edit2 className="w-3 h-3 text-gray-400" />
+              </button>
+            )}
+          </div>
+          
           <span className="text-xs text-gray-400 flex-shrink-0">
             {startDate && endDate && (
               <>
