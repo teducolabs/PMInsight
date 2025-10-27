@@ -37,8 +37,19 @@ export function WBSPage() {
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
   const [dragStartX, setDragStartX] = useState<number>(0);
   const [dragMode, setDragMode] = useState<'move' | 'resize-start' | 'resize-end' | null>(null);
-  const [dragInfo, setDragInfo] = useState<{ startDate: string; endDate: string; days: number } | null>(null);
+  const [dragInfo, setDragInfo] = useState<{ 
+    startDate: string; 
+    endDate: string; 
+    days: number;
+    newStartDate?: Date;
+    newEndDate?: Date;
+  } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  
+  // Mock activities - use state to allow updates
+  const [mockActivities, setMockActivities] = useState<Activity[]>(() => 
+    generateMockActivities(currentProjectId || 'mock-project')
+  );
   
   // Mock Project Info
   const projectInfo = {
@@ -150,9 +161,6 @@ export function WBSPage() {
       ],
     },
   ];
-
-  // Mock Activities with dates
-  const mockActivities = useMemo(() => generateMockActivities(currentProjectId!), [currentProjectId]);
 
   // Redirect to projects if no project selected
   if (!currentProjectId) {
@@ -333,8 +341,12 @@ export function WBSPage() {
   // Drag handlers
   const handleTaskMouseDown = (e: React.MouseEvent, activityId: string, mode: 'move' | 'resize-start' | 'resize-end') => {
     e.stopPropagation();
+    e.preventDefault();
+    
     const activity = mockActivities.find(a => a.id === activityId);
     if (!activity) return;
+    
+    console.log(`🖱️ MouseDown: ${mode} on ${activity.name}`);
     
     setDraggingTask(activityId);
     setDragMode(mode);
@@ -353,8 +365,6 @@ export function WBSPage() {
     
     const deltaX = e.clientX - dragStartX;
     const daysDelta = Math.round((deltaX / columnWidth) * 7); // Convert pixels to days
-    
-    if (Math.abs(daysDelta) === 0) return;
     
     const activity = mockActivities.find(a => a.id === draggingTask);
     if (!activity) return;
@@ -377,19 +387,42 @@ export function WBSPage() {
       startDate: format(newStartDate, 'dd/MM/yyyy', { locale: vi }),
       endDate: format(newEndDate, 'dd/MM/yyyy', { locale: vi }),
       days: newDuration,
+      newStartDate,
+      newEndDate,
     });
     
-    console.log(`Drag ${dragMode}: ${draggingTask}, days: ${daysDelta}`, dragInfo);
-    // TODO: Update activity dates via API
-    
-    setDragStartX(e.clientX);
+    console.log(`Drag ${dragMode}: ${draggingTask}, deltaX: ${deltaX}px, days: ${daysDelta}`);
   };
 
   const handleMouseUp = () => {
-    if (draggingTask && dragMode) {
-      console.log('Drag completed for', draggingTask, dragInfo);
+    if (draggingTask && dragMode && dragInfo && dragInfo.newStartDate && dragInfo.newEndDate) {
+      console.log('✅ Drag completed for', draggingTask);
+      
+      const newDuration = Math.max(1, Math.ceil((dragInfo.newEndDate.getTime() - dragInfo.newStartDate.getTime()) / (1000 * 60 * 60 * 24)));
+      
+      // Update activity in state
+      setMockActivities(prev => prev.map(a => 
+        a.id === draggingTask
+          ? {
+              ...a,
+              plannedStartDate: dragInfo.newStartDate!.toISOString(),
+              plannedEndDate: dragInfo.newEndDate!.toISOString(),
+              durationDays: newDuration,
+            }
+          : a
+      ));
+      
+      console.log('📅 Updated activity:', {
+        id: draggingTask,
+        newStart: dragInfo.newStartDate.toISOString(),
+        newEnd: dragInfo.newEndDate.toISOString(),
+        duration: newDuration,
+      });
+      
       // TODO: Save changes via API
+      // await activityApi.update({ ...activity, plannedStartDate: newStartDate, plannedEndDate: newEndDate });
     }
+    
     setDraggingTask(null);
     setDragMode(null);
     setDragInfo(null);
@@ -579,9 +612,6 @@ export function WBSPage() {
           <div 
             className="flex-1 relative" 
             style={{ minWidth: totalWidth }}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
           >
             {/* Grid */}
             <GanttGrid
@@ -597,7 +627,13 @@ export function WBSPage() {
               width={totalWidth}
               height={visibleRows.length * ROW_HEIGHT}
               className="absolute top-0 left-0"
-              style={{ cursor: draggingTask ? 'grabbing' : 'default' }}
+              style={{ 
+                cursor: draggingTask ? 'grabbing' : 'default',
+                userSelect: 'none',
+              }}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             >
               {/* Today marker */}
               <GanttTimeline
@@ -652,29 +688,48 @@ export function WBSPage() {
                 if (!position) return null;
 
                 const isDragging = draggingTask === row.activity.id;
+                const isHovered = hoveredTask === row.activity.id;
+                const taskY = index * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2;
+                
+                // Calculate preview position when dragging
+                let displayX = position.x;
+                let displayWidth = position.width;
+                
+                if (isDragging && dragInfo?.newStartDate && dragInfo?.newEndDate) {
+                  const daysSinceStart = Math.floor(
+                    (dragInfo.newStartDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+                  );
+                  const duration = Math.max(1, Math.ceil(
+                    (dragInfo.newEndDate.getTime() - dragInfo.newStartDate.getTime()) / (1000 * 60 * 60 * 24)
+                  ));
+                  
+                  displayX = Math.floor(daysSinceStart / 7) * columnWidth;
+                  displayWidth = Math.max(1, Math.ceil(duration / 7)) * columnWidth;
+                }
 
                 return (
                   <g key={row.activity.id}>
+                    {/* Main task bar */}
                     <GanttTask
                       activity={row.activity}
-                      x={position.x}
-                      y={index * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2}
-                      width={position.width}
+                      x={displayX}
+                      y={taskY}
+                      width={displayWidth}
                       height={TASK_BAR_HEIGHT}
-                      isHovered={hoveredTask === row.activity.id || isDragging}
+                      isHovered={isHovered || isDragging}
                       onMouseEnter={() => setHoveredTask(row.activity.id)}
                       onMouseLeave={() => setHoveredTask(null)}
                       onClick={() => console.log('Click task', row.activity.id)}
                     />
                     
-                    {/* Visual indicator when dragging */}
+                    {/* Dashed outline when dragging */}
                     {isDragging && (
                       <rect
-                        x={position.x}
-                        y={index * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2}
-                        width={position.width}
-                        height={TASK_BAR_HEIGHT}
-                        fill="rgba(59, 130, 246, 0.2)"
+                        x={displayX - 2}
+                        y={taskY - 2}
+                        width={displayWidth + 4}
+                        height={TASK_BAR_HEIGHT + 4}
+                        fill="none"
                         stroke="#3b82f6"
                         strokeWidth={2}
                         strokeDasharray="4 2"
@@ -682,44 +737,59 @@ export function WBSPage() {
                       />
                     )}
                     
-                    {/* Drag handle - left (resize start date) */}
-                    {(hoveredTask === row.activity.id || isDragging) && (
-                      <>
-                        <rect
-                          x={position.x - 3}
-                          y={index * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2 + 4}
-                          width={6}
-                          height={TASK_BAR_HEIGHT - 8}
-                          fill="#3b82f6"
-                          stroke="#fff"
-                          strokeWidth={1}
-                          cursor="ew-resize"
-                          onMouseDown={(e) => handleTaskMouseDown(e, row.activity.id, 'resize-start')}
-                        />
-                        
-                        <rect
-                          x={position.x + position.width - 3}
-                          y={index * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2 + 4}
-                          width={6}
-                          height={TASK_BAR_HEIGHT - 8}
-                          fill="#3b82f6"
-                          stroke="#fff"
-                          strokeWidth={1}
-                          cursor="ew-resize"
-                          onMouseDown={(e) => handleTaskMouseDown(e, row.activity.id, 'resize-end')}
-                        />
-                      </>
-                    )}
-                    
-                    {/* Invisible drag area for moving */}
+                    {/* Left resize handle - always visible on hover */}
                     <rect
-                      x={position.x}
-                      y={index * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2}
-                      width={position.width}
+                      x={displayX - 4}
+                      y={taskY + 2}
+                      width={8}
+                      height={TASK_BAR_HEIGHT - 4}
+                      fill={(isHovered || isDragging) ? "#3b82f6" : "transparent"}
+                      stroke={(isHovered || isDragging) ? "#fff" : "none"}
+                      strokeWidth={1}
+                      cursor="ew-resize"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleTaskMouseDown(e, row.activity.id, 'resize-start');
+                      }}
+                      onMouseEnter={() => setHoveredTask(row.activity.id)}
+                    />
+                    
+                    {/* Right resize handle - always visible on hover */}
+                    <rect
+                      x={displayX + displayWidth - 4}
+                      y={taskY + 2}
+                      width={8}
+                      height={TASK_BAR_HEIGHT - 4}
+                      fill={(isHovered || isDragging) ? "#3b82f6" : "transparent"}
+                      stroke={(isHovered || isDragging) ? "#fff" : "none"}
+                      strokeWidth={1}
+                      cursor="ew-resize"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleTaskMouseDown(e, row.activity.id, 'resize-end');
+                      }}
+                      onMouseEnter={() => setHoveredTask(row.activity.id)}
+                    />
+                    
+                    {/* Center drag area for moving - higher z-index */}
+                    <rect
+                      x={displayX + 8}
+                      y={taskY}
+                      width={Math.max(0, displayWidth - 16)}
                       height={TASK_BAR_HEIGHT}
                       fill="transparent"
                       cursor={isDragging ? 'grabbing' : 'grab'}
-                      onMouseDown={(e) => handleTaskMouseDown(e, row.activity.id, 'move')}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleTaskMouseDown(e, row.activity.id, 'move');
+                      }}
+                      onMouseEnter={() => setHoveredTask(row.activity.id)}
+                      onMouseLeave={() => {
+                        if (!isDragging) setHoveredTask(null);
+                      }}
                     />
                   </g>
                 );

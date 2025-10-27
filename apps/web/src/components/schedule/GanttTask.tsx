@@ -52,7 +52,7 @@ export function GanttTask({
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onClick={onClick}
-            className="cursor-pointer"
+            style={{ pointerEvents: 'none' }}
           >
             {/* Main task bar */}
             <rect
@@ -65,6 +65,7 @@ export function GanttTask({
               strokeWidth={isHovered ? 2 : 1}
               rx={4}
               opacity={0.9}
+              style={{ pointerEvents: 'none' }}
             />
 
             {/* Progress indicator */}
@@ -77,6 +78,7 @@ export function GanttTask({
                 fill={colors.progress}
                 rx={4}
                 opacity={1}
+                style={{ pointerEvents: 'none' }}
               />
             )}
 
