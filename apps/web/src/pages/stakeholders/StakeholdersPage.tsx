@@ -5,21 +5,48 @@ import { StakeholderTable } from '@/components/stakeholders/StakeholderTable';
 import { StakeholderMatrix } from '@/components/stakeholders/StakeholderMatrix';
 import { CreateStakeholderDialog } from '@/components/stakeholders/CreateStakeholderDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useProject } from '@/lib/context/ProjectContext';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 
 export function StakeholdersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  
-  // TODO: Replace with real project selection
-  const currentProjectId = 'demo-project-id';
+  const { currentProjectId, currentProjectName } = useProject();
+
+  // If no project selected, show alert
+  if (!currentProjectId) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Stakeholders</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Quản lý các bên liên quan của dự án
+          </p>
+        </div>
+
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Chưa chọn dự án</AlertTitle>
+          <AlertDescription>
+            Vui lòng chọn dự án từ dropdown ở góc trên bên trái để xem và quản lý stakeholders.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[{ label: 'Stakeholders' }]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Stakeholders</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Quản lý các bên liên quan của dự án
+            Quản lý các bên liên quan cho dự án: <span className="font-semibold text-blue-600">{currentProjectName}</span>
           </p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>

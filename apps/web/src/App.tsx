@@ -7,6 +7,7 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { StakeholdersPage } from './pages/stakeholders/StakeholdersPage';
+import { ProjectsPage } from './pages/projects/ProjectsPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -35,6 +36,14 @@ function App() {
         element={
           <PrivateRoute>
             <DashboardPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/projects"
+        element={
+          <PrivateRoute>
+            <ProjectsPage />
           </PrivateRoute>
         }
       />

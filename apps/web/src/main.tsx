@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './lib/context/AuthContext';
+import { ProjectProvider } from './lib/context/ProjectContext';
 import App from './App';
 import './index.css';
 import './i18n';
@@ -23,7 +24,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <ProjectProvider>
+            <App />
+          </ProjectProvider>
         </AuthProvider>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />

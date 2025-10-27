@@ -9,15 +9,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ProjectSelector } from './ProjectSelector';
 
 export function Header() {
   const { user, logout } = useAuth();
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
+      {/* Project Selector */}
+      <div className="flex items-center gap-4">
+        <ProjectSelector />
+      </div>
+
       {/* Search Bar */}
-      <div className="flex flex-1 items-center">
-        <div className="relative w-96">
+      <div className="flex flex-1 items-center justify-center px-8">
+        <div className="relative w-full max-w-xl">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
