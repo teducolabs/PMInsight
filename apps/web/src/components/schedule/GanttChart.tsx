@@ -145,24 +145,58 @@ export function GanttChart({
         className="overflow-auto relative"
         style={{ height: height - HEADER_HEIGHT }}
       >
-        {/* Task list sidebar */}
+        {/* Task list sidebar with grid lines */}
         <div className="absolute left-0 top-0 w-64 bg-gray-50 border-r z-10">
           <div className="sticky top-0 bg-gray-100 px-4 py-3 font-medium text-sm border-b">
             Công việc
           </div>
-          {activities.map((activity, index) => (
-            <div
-              key={activity.id}
-              className="px-4 py-3 border-b text-sm hover:bg-gray-100 cursor-pointer truncate"
-              style={{ height: ROW_HEIGHT }}
-              onClick={() => onActivityClick?.(activity)}
-            >
-              <div className="font-medium truncate">{activity.name}</div>
-              <div className="text-xs text-gray-500 truncate">
-                {activity.code || `#${index + 1}`}
+          
+          {/* Horizontal lines for each row */}
+          <svg
+            className="absolute top-0 left-0 w-full pointer-events-none"
+            height={activities.length * ROW_HEIGHT}
+          >
+            {activities.map((_, index) => (
+              <line
+                key={index}
+                x1={0}
+                y1={index * ROW_HEIGHT}
+                x2={256}
+                y2={index * ROW_HEIGHT}
+                stroke="#e5e7eb"
+                strokeWidth={1}
+              />
+            ))}
+          </svg>
+
+          {activities.map((activity, index) => {
+            const startDate = activity.plannedStartDate ? new Date(activity.plannedStartDate) : null;
+            const endDate = activity.plannedEndDate ? new Date(activity.plannedEndDate) : null;
+            
+            return (
+              <div
+                key={activity.id}
+                className="px-4 py-3 text-sm hover:bg-gray-100 cursor-pointer relative"
+                style={{ height: ROW_HEIGHT }}
+                onClick={() => onActivityClick?.(activity)}
+              >
+                <div className="font-medium truncate">{activity.name}</div>
+                <div className="text-xs text-gray-500 truncate">
+                  {activity.code || `#${index + 1}`}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {startDate && endDate ? (
+                    <>
+                      {format(startDate, 'dd/MM', { locale: vi })} → {format(endDate, 'dd/MM/yyyy', { locale: vi })}
+                      <span className="ml-1 text-gray-500">({activity.durationDays}d)</span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300">Chưa có timeline</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Chart area */}
