@@ -5,7 +5,8 @@ export const projectApi = {
   // Get all projects
   getAll: async (): Promise<Project[]> => {
     const response = await apiClient.get('/projects');
-    return response.data;
+    // Backend returns { items: [], nextCursor: null, total: 0 }
+    return response.data.items || [];
   },
 
   // Get project by ID

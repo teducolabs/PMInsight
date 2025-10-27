@@ -145,7 +145,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "PMInsight API", Version = "v1" });
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "PM Insight API", Version = "v1" });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -190,6 +190,7 @@ app.UseHttpsRedirection();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseTenantContext(); // Must be after UseAuthentication
 app.UseAuthorization();
 
 app.MapControllers();

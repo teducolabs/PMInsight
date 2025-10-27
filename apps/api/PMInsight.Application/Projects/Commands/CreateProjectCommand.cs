@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using PMInsight.Application.Projects.Dtos;
+using PMInsight.Domain.Enums;
 
 namespace PMInsight.Application.Projects.Commands;
 
@@ -8,10 +9,16 @@ public record CreateProjectCommand : IRequest<ProjectDto>
 {
     public required string Code { get; init; }
     public required string Name { get; init; }
-    public required string Description { get; init; }
+    public string? Description { get; init; }
+    public ProjectStatus Status { get; init; } = ProjectStatus.Initiating;
+    public required string Priority { get; init; } // Frontend enum as string
     public required DateTime StartDate { get; init; }
     public required DateTime EndDate { get; init; }
     public double? Budget { get; init; }
+    public string Currency { get; init; } = "VND";
+    public required string ProjectManagerId { get; init; }
+    public string? SponsorId { get; init; }
+    public string? TemplateId { get; init; }
 }
 
 public class CreateProjectCommandValidator : AbstractValidator<CreateProjectCommand>
@@ -26,11 +33,15 @@ public class CreateProjectCommandValidator : AbstractValidator<CreateProjectComm
 
         RuleFor(x => x.Name)
             .NotEmpty()
-            .MaximumLength(100);
+            .MaximumLength(200);
 
         RuleFor(x => x.Description)
+            .MaximumLength(1000);
+
+        RuleFor(x => x.Priority)
             .NotEmpty()
-            .MaximumLength(500);
+            .Must(p => p is "Low" or "Medium" or "High" or "Critical")
+            .WithMessage("Priority must be Low, Medium, High, or Critical");
 
         RuleFor(x => x.StartDate)
             .NotEmpty()
@@ -43,5 +54,12 @@ public class CreateProjectCommandValidator : AbstractValidator<CreateProjectComm
         RuleFor(x => x.Budget)
             .GreaterThan(0)
             .When(x => x.Budget.HasValue);
+
+        RuleFor(x => x.ProjectManagerId)
+            .NotEmpty();
+
+        RuleFor(x => x.Currency)
+            .NotEmpty()
+            .MaximumLength(3);
     }
 }

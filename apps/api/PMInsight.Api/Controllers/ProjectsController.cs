@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PMInsight.Api.Models;
 using PMInsight.Application.Projects.Commands;
 using PMInsight.Application.Projects.Dtos;
 using PMInsight.Application.Projects.Queries;
@@ -46,6 +47,14 @@ public class ProjectsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("stats")]
+    [ProducesResponseType(typeof(ProjectStatsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ProjectStatsDto>> GetProjectStats()
+    {
+        var result = await _mediator.Send(new GetProjectStatsQuery());
+        return Ok(result);
+    }
+
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(ProjectDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -61,8 +70,31 @@ public class ProjectsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ProjectDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ProjectDto>> CreateProject(CreateProjectCommand command)
+    public async Task<ActionResult<ProjectDto>> CreateProject(CreateProjectRequest request)
     {
+        // Parse status enum
+        if (!Enum.TryParse<ProjectStatus>(request.Status, ignoreCase: true, out var status))
+        {
+            return BadRequest($"Invalid status: {request.Status}");
+        }
+
+        // Map request to command
+        var command = new CreateProjectCommand
+        {
+            Code = request.Code,
+            Name = request.Name,
+            Description = request.Description,
+            Status = status,
+            Priority = request.Priority,
+            StartDate = request.StartDate,
+            EndDate = request.EndDate,
+            Budget = request.Budget,
+            Currency = request.Currency,
+            ProjectManagerId = request.ProjectManagerId,
+            SponsorId = request.SponsorId,
+            TemplateId = request.TemplateId
+        };
+
         var result = await _mediator.Send(command);
         return CreatedAtAction(nameof(GetProject), new { id = result.Id }, result);
     }
