@@ -3,15 +3,17 @@ import { useProject } from '@/lib/context/ProjectContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp, Edit2 } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp, Edit2, Link } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import type { Activity } from '@/types/activity';
+import type { Activity, ActivityDependency } from '@/types/activity';
 import { GanttHeader } from '@/components/schedule/GanttHeader';
 import { GanttGrid } from '@/components/schedule/GanttGrid';
 import { GanttTask } from '@/components/schedule/GanttTask';
 import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
+import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
+import { EditDependenciesDialog } from '@/components/schedule/EditDependenciesDialog';
 import { generateMockActivities } from './mockWBSData';
 
 interface WBSNode {
@@ -50,6 +52,9 @@ export function WBSPage() {
   // Progress edit state
   const [editingProgress, setEditingProgress] = useState<string | null>(null);
   const [progressValue, setProgressValue] = useState<string>('');
+  
+  // Dependencies edit state
+  const [editingDependencies, setEditingDependencies] = useState<Activity | null>(null);
   
   // Mock activities - use state to allow updates
   const [mockActivities, setMockActivities] = useState<Activity[]>(() => 
@@ -435,17 +440,83 @@ export function WBSPage() {
       
       const newDuration = Math.max(1, Math.ceil((dragInfo.newEndDate.getTime() - dragInfo.newStartDate.getTime()) / (1000 * 60 * 60 * 24)));
       
-      // Update activity in state
-      setMockActivities(prev => prev.map(a => 
-        a.id === draggingTask
-          ? {
-              ...a,
-              plannedStartDate: dragInfo.newStartDate!.toISOString(),
-              plannedEndDate: dragInfo.newEndDate!.toISOString(),
-              durationDays: newDuration,
-            }
-          : a
-      ));
+      // Update activity and cascade to successors
+      setMockActivities(prev => {
+        const updated = [...prev];
+        
+        // Update dragged activity
+        const draggedIndex = updated.findIndex(a => a.id === draggingTask);
+        if (draggedIndex === -1) return prev;
+        
+        updated[draggedIndex] = {
+          ...updated[draggedIndex],
+          plannedStartDate: dragInfo.newStartDate!.toISOString(),
+          plannedEndDate: dragInfo.newEndDate!.toISOString(),
+          durationDays: newDuration,
+        };
+        
+        // Cascade update to successors
+        const cascadeSuccessors = (activityId: string, visited = new Set<string>()) => {
+          if (visited.has(activityId)) return; // Prevent circular dependencies
+          visited.add(activityId);
+          
+          // Find all activities that depend on this one
+          updated.forEach((successor, idx) => {
+            if (!successor.predecessors) return;
+            
+            successor.predecessors.forEach((dep) => {
+              if (dep.activityId === activityId) {
+                const predecessor = updated.find(a => a.id === activityId);
+                if (!predecessor) return;
+                
+                const predStart = new Date(predecessor.plannedStartDate!);
+                const predEnd = new Date(predecessor.plannedEndDate!);
+                const succStart = new Date(successor.plannedStartDate!);
+                const succDuration = successor.durationDays;
+                
+                let newSuccStart: Date;
+                
+                switch (dep.type) {
+                  case 'FS': // Finish-to-Start
+                    newSuccStart = addDays(predEnd, dep.lagDays);
+                    break;
+                  case 'SS': // Start-to-Start
+                    newSuccStart = addDays(predStart, dep.lagDays);
+                    break;
+                  case 'FF': // Finish-to-Finish
+                    newSuccStart = addDays(predEnd, dep.lagDays - succDuration);
+                    break;
+                  case 'SF': // Start-to-Finish
+                    newSuccStart = addDays(predStart, dep.lagDays - succDuration);
+                    break;
+                  default:
+                    return;
+                }
+                
+                // Only update if the constraint pushes the date later (don't pull back)
+                if (newSuccStart > succStart) {
+                  const newSuccEnd = addDays(newSuccStart, succDuration);
+                  
+                  updated[idx] = {
+                    ...successor,
+                    plannedStartDate: newSuccStart.toISOString(),
+                    plannedEndDate: newSuccEnd.toISOString(),
+                  };
+                  
+                  console.log(`🔗 Cascaded: ${successor.code} → ${format(newSuccStart, 'dd/MM/yyyy', { locale: vi })}`);
+                  
+                  // Recursively cascade
+                  cascadeSuccessors(successor.id, visited);
+                }
+              }
+            });
+          });
+        };
+        
+        cascadeSuccessors(draggingTask);
+        
+        return updated;
+      });
       
       console.log('📅 Updated activity:', {
         id: draggingTask,
@@ -461,6 +532,15 @@ export function WBSPage() {
     setDraggingTask(null);
     setDragMode(null);
     setDragInfo(null);
+  };
+
+  // Handle dependencies save
+  const handleSaveDependencies = (activityId: string, dependencies: ActivityDependency[]) => {
+    setMockActivities(prev => prev.map(a =>
+      a.id === activityId ? { ...a, predecessors: dependencies } : a
+    ));
+    console.log('✅ Updated predecessors for', activityId, dependencies);
+    // TODO: Save to API
   };
 
   const renderRow = (row: RowItem) => {
@@ -596,6 +676,18 @@ export function WBSPage() {
             )}
           </div>
           
+          {/* Dependencies indicator */}
+          <button
+            onClick={() => setEditingDependencies(activity)}
+            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-100 transition-colors flex-shrink-0"
+            title="Quản lý Dependencies"
+          >
+            <Link className="w-3 h-3 text-indigo-600" />
+            <span className="text-xs text-indigo-600 font-semibold">
+              {activity.predecessors?.length || 0}
+            </span>
+          </button>
+          
           <span className="text-xs text-gray-400 flex-shrink-0">
             {startDate && endDate && (
               <>
@@ -611,6 +703,17 @@ export function WBSPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
+      {/* Dependencies Edit Dialog */}
+      {editingDependencies && (
+        <EditDependenciesDialog
+          open={!!editingDependencies}
+          onOpenChange={(open) => !open && setEditingDependencies(null)}
+          activity={editingDependencies}
+          allActivities={mockActivities}
+          onSave={handleSaveDependencies}
+        />
+      )}
+      
       {/* Project Info Banner */}
       <div className="rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -945,6 +1048,27 @@ export function WBSPage() {
                   </g>
                 );
               })}
+              
+              {/* Dependency Arrows */}
+              <GanttDependencyArrows
+                activities={mockActivities}
+                getTaskPosition={(activity) => {
+                  const position = getTaskPosition(activity);
+                  if (!position) return null;
+                  
+                  const rowIndex = visibleRows.findIndex(
+                    r => r.type === 'activity' && r.activity.id === activity.id
+                  );
+                  if (rowIndex === -1) return null;
+                  
+                  return {
+                    ...position,
+                    y: rowIndex * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2,
+                  };
+                }}
+                rowHeight={ROW_HEIGHT}
+                taskBarHeight={TASK_BAR_HEIGHT}
+              />
             </svg>
           </div>
         </div>
