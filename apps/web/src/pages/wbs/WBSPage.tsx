@@ -51,14 +51,44 @@ export function WBSPage() {
     generateMockActivities(currentProjectId || 'mock-project')
   );
   
-  // Mock Project Info
-  const projectInfo = {
-    name: 'Dự án Website PMInsight - Hệ thống quản lý dự án',
-    startDate: new Date('2025-01-01'),
-    endDate: new Date('2025-03-31'),
-    currentPhase: 'Phân tích & Thiết kế',
-    progress: 35,
-  };
+  // Calculate project info from actual activities
+  const projectInfo = useMemo(() => {
+    if (mockActivities.length === 0) {
+      return {
+        name: 'Dự án Website PMInsight - Hệ thống quản lý dự án',
+        startDate: new Date('2025-01-01'),
+        endDate: new Date('2025-03-31'),
+        currentPhase: 'Phân tích & Thiết kế',
+        progress: 35,
+      };
+    }
+    
+    // Calculate actual start/end dates from activities
+    const dates = mockActivities
+      .filter(a => a.plannedStartDate && a.plannedEndDate)
+      .flatMap(a => [new Date(a.plannedStartDate!), new Date(a.plannedEndDate!)]);
+    
+    const actualStartDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const actualEndDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    
+    // Calculate progress from activities
+    const totalProgress = mockActivities.reduce((sum, a) => sum + a.percentComplete, 0);
+    const avgProgress = Math.round(totalProgress / mockActivities.length);
+    
+    // Determine current phase based on WBS progress
+    let currentPhase = 'Khởi động';
+    if (avgProgress > 60) currentPhase = 'Testing & QA';
+    else if (avgProgress > 40) currentPhase = 'Phát triển';
+    else if (avgProgress > 20) currentPhase = 'Phân tích & Thiết kế';
+    
+    return {
+      name: 'Dự án Website PMInsight - Hệ thống quản lý dự án',
+      startDate: actualStartDate,
+      endDate: actualEndDate,
+      currentPhase,
+      progress: avgProgress,
+    };
+  }, [mockActivities]);
   
   // Mock WBS Structure - More comprehensive data
   const wbsNodes: WBSNode[] = [
@@ -519,7 +549,7 @@ export function WBSPage() {
     <div className="container mx-auto py-6 space-y-6">
       {/* Project Info Banner */}
       <div className="rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{projectInfo.name}</h2>
             <div className="flex items-center gap-6 text-sm">
@@ -549,6 +579,63 @@ export function WBSPage() {
                 className="h-full bg-blue-600 transition-all duration-300"
                 style={{ width: `${projectInfo.progress}%` }}
               />
+            </div>
+          </div>
+        </div>
+        
+        {/* Timeline visualization */}
+        <div className="relative">
+          <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
+            <span>{format(projectInfo.startDate, 'dd/MM/yyyy', { locale: vi })}</span>
+            <div className="flex-1" />
+            <span className="text-blue-600 font-semibold">Hôm nay: {format(new Date(), 'dd/MM/yyyy', { locale: vi })}</span>
+            <div className="flex-1" />
+            <span>{format(projectInfo.endDate, 'dd/MM/yyyy', { locale: vi })}</span>
+          </div>
+          
+          {/* Timeline bar */}
+          <div className="relative h-8 bg-gray-200 rounded-lg overflow-hidden">
+            {/* Progress fill */}
+            <div 
+              className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300"
+              style={{ width: `${projectInfo.progress}%` }}
+            >
+              <div className="absolute inset-0 bg-white/20 animate-pulse" />
+            </div>
+            
+            {/* Today marker */}
+            {(() => {
+              const today = new Date();
+              const totalDays = Math.ceil((projectInfo.endDate.getTime() - projectInfo.startDate.getTime()) / (1000 * 60 * 60 * 24));
+              const daysPassed = Math.ceil((today.getTime() - projectInfo.startDate.getTime()) / (1000 * 60 * 60 * 24));
+              const todayPercent = Math.max(0, Math.min(100, (daysPassed / totalDays) * 100));
+              
+              return (
+                <>
+                  <div 
+                    className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10"
+                    style={{ left: `${todayPercent}%` }}
+                  >
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-lg" />
+                  </div>
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 px-2 py-0.5 bg-red-500 text-white text-xs font-semibold rounded whitespace-nowrap shadow-lg"
+                    style={{ 
+                      left: `${todayPercent}%`,
+                      transform: `translate(${todayPercent > 80 ? '-100%' : todayPercent < 20 ? '0' : '-50%'}, -50%)`,
+                      marginLeft: todayPercent > 80 ? '-4px' : todayPercent < 20 ? '4px' : '0'
+                    }}
+                  >
+                    Hôm nay
+                  </div>
+                </>
+              );
+            })()}
+            
+            {/* Phase markers */}
+            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-center justify-between px-2 pointer-events-none">
+              <span className="text-xs font-semibold text-white drop-shadow-lg">Bắt đầu</span>
+              <span className="text-xs font-semibold text-gray-700 drop-shadow-lg">Kết thúc</span>
             </div>
           </div>
         </div>
