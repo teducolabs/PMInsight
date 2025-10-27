@@ -8,6 +8,7 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { StakeholdersPage } from './pages/stakeholders/StakeholdersPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
+import { ProjectDetailPage } from './pages/projects/ProjectDetailPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -44,6 +45,14 @@ function App() {
         element={
           <PrivateRoute>
             <ProjectsPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/projects/:id"
+        element={
+          <PrivateRoute>
+            <ProjectDetailPage />
           </PrivateRoute>
         }
       />
