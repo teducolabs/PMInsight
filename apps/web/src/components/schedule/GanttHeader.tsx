@@ -30,34 +30,27 @@ export function GanttHeader({ columns, columnWidth, viewMode }: GanttHeaderProps
   };
 
   return (
-    <div className="flex">
-      {/* Task list header */}
-      <div className="w-64 bg-gray-100 px-4 py-3 font-medium text-sm border-r">
-        Danh sách công việc
-      </div>
-
+    <div className="flex h-full">
       {/* Timeline columns */}
-      <div className="flex overflow-x-auto">
-        {columns.map((column, index) => {
-          const { primary, secondary } = formatColumn(column);
-          const isWeekend = column.getDay() === 0 || column.getDay() === 6;
+      {columns.map((column, index) => {
+        const { primary, secondary } = formatColumn(column);
+        const isWeekend = column.getDay() === 0 || column.getDay() === 6;
 
-          return (
-            <div
-              key={index}
-              className={`border-r text-center ${isWeekend ? 'bg-gray-50' : ''}`}
-              style={{ width: columnWidth, minWidth: columnWidth }}
-            >
-              <div className="py-1 text-xs font-medium text-gray-700">
-                {primary}
-              </div>
-              <div className="py-1 text-xs text-gray-500">
-                {secondary}
-              </div>
+        return (
+          <div
+            key={index}
+            className={`border-r text-center ${isWeekend ? 'bg-gray-50' : ''}`}
+            style={{ width: columnWidth, minWidth: columnWidth }}
+          >
+            <div className="py-1 text-xs font-medium text-gray-700">
+              {primary}
             </div>
-          );
-        })}
-      </div>
+            <div className="py-1 text-xs text-gray-500">
+              {secondary}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

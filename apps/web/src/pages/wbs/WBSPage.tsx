@@ -271,7 +271,10 @@ export function WBSPage() {
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
     
+    // Round to start of week (Monday) for better alignment
     const start = addDays(minDate, -7);
+    start.setDate(start.getDate() - start.getDay() + 1); // Monday of that week
+    
     const end = addDays(maxDate, 14);
     
     const width = viewMode === 'day' ? 40 : viewMode === 'week' ? 60 : 120;
@@ -279,9 +282,9 @@ export function WBSPage() {
     // Generate columns
     let cols: Date[] = [];
     if (viewMode === 'week') {
-      let current = start;
+      let current = new Date(start);
       while (current <= end) {
-        cols.push(current);
+        cols.push(new Date(current));
         current = addDays(current, 7);
       }
     }
@@ -302,11 +305,16 @@ export function WBSPage() {
     const taskStart = new Date(activity.plannedStartDate);
     const taskEnd = new Date(activity.plannedEndDate);
     
+    // Calculate which column (week) the task starts in
     const daysSinceStart = Math.floor((taskStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const taskDuration = Math.max(1, Math.floor((taskEnd.getTime() - taskStart.getTime()) / (1000 * 60 * 60 * 24)));
+    const weekIndex = Math.floor(daysSinceStart / 7);
     
-    const x = Math.floor(daysSinceStart / 7) * columnWidth;
-    const width = Math.max(1, Math.ceil(taskDuration / 7)) * columnWidth;
+    // Calculate task duration in days
+    const taskDuration = Math.max(1, Math.ceil((taskEnd.getTime() - taskStart.getTime()) / (1000 * 60 * 60 * 24)));
+    const weeksSpan = Math.ceil(taskDuration / 7);
+    
+    const x = weekIndex * columnWidth;
+    const width = weeksSpan * columnWidth;
     
     return { x, width };
   };
@@ -316,11 +324,16 @@ export function WBSPage() {
     const dateRange = getWBSNodeDateRange(node);
     if (!dateRange) return null;
     
+    // Calculate which column (week) the WBS starts in
     const daysSinceStart = Math.floor((dateRange.startDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const duration = Math.max(1, Math.floor((dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const weekIndex = Math.floor(daysSinceStart / 7);
     
-    const x = Math.floor(daysSinceStart / 7) * columnWidth;
-    const width = Math.max(1, Math.ceil(duration / 7)) * columnWidth;
+    // Calculate duration in days
+    const duration = Math.max(1, Math.ceil((dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const weeksSpan = Math.ceil(duration / 7);
+    
+    const x = weekIndex * columnWidth;
+    const width = weeksSpan * columnWidth;
     
     return { x, width, dateRange };
   };
