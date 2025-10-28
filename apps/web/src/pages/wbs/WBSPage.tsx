@@ -29,16 +29,33 @@ type ViewMode = 'day' | 'week' | 'month';
 
 const ROW_HEIGHT = 50;
 const TASK_BAR_HEIGHT = 32;
-const DEFAULT_SIDEBAR_WIDTH = 400;
-const MIN_SIDEBAR_WIDTH = 250;
-const MAX_SIDEBAR_WIDTH = 600;
+
+// Column configuration
+type ColumnConfig = {
+  id: string;
+  label: string;
+  width: number;
+  minWidth: number;
+  maxWidth: number;
+  visible: boolean;
+  resizable: boolean;
+};
+
+const DEFAULT_COLUMNS: ColumnConfig[] = [
+  { id: 'tree', label: 'WBS/Activity', width: 350, minWidth: 200, maxWidth: 600, visible: true, resizable: true },
+  { id: 'progress', label: 'Progress', width: 100, minWidth: 80, maxWidth: 150, visible: true, resizable: true },
+  { id: 'dependencies', label: 'Dependencies', width: 80, minWidth: 60, maxWidth: 120, visible: true, resizable: true },
+  { id: 'dates', label: 'Dates', width: 180, minWidth: 150, maxWidth: 250, visible: true, resizable: true },
+];
 
 export function WBSPage() {
   const { currentProjectId } = useProject();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [viewMode] = useState<ViewMode>('week');
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
-  const [isResizing, setIsResizing] = useState(false);
+  const [columns, setColumns] = useState<ColumnConfig[]>(DEFAULT_COLUMNS);
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
   const [dragStartX, setDragStartX] = useState<number>(0);
@@ -220,13 +237,13 @@ export function WBSPage() {
   };
 
   // Calculate Gantt date range
-  const { startDate, columns, columnWidth } = useMemo(() => {
+  const { startDate, ganttColumns, columnWidth } = useMemo(() => {
     if (activities.length === 0) {
       // Default range if no activities
       const now = new Date();
       return {
         startDate: now,
-        columns: [now],
+        ganttColumns: [now],
         columnWidth: 60,
       };
     }
@@ -239,7 +256,7 @@ export function WBSPage() {
       const now = new Date();
       return {
         startDate: now,
-        columns: [now],
+        ganttColumns: [now],
         columnWidth: 60,
       };
     }
@@ -264,12 +281,12 @@ export function WBSPage() {
     
     return {
       startDate: start,
-      columns: cols,
+      ganttColumns: cols,
       columnWidth: width,
     };
   }, [viewMode, activities]);
 
-  const totalWidth = columns.length * columnWidth;
+  const totalWidth = ganttColumns.length * columnWidth;
 
   // Calculate task position in Gantt
   const getTaskPosition = (activity: Activity) => {
@@ -337,46 +354,57 @@ export function WBSPage() {
     });
   };
 
-  // Handle sidebar resize
-  const handleResizeStart = (e: React.MouseEvent) => {
+  // Handle column resize
+  const handleColumnResizeStart = (e: React.MouseEvent, columnId: string) => {
     e.preventDefault();
-    setIsResizing(true);
-  };
-
-  const handleResizeMove = (e: MouseEvent) => {
-    if (!isResizing) return;
+    e.stopPropagation();
+    const column = columns.find(c => c.id === columnId);
+    if (!column) return;
     
-    const newWidth = e.clientX;
-    if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= MAX_SIDEBAR_WIDTH) {
-      setSidebarWidth(newWidth);
-    }
+    setResizingColumn(columnId);
+    setResizeStartX(e.clientX);
+    setResizeStartWidth(column.width);
   };
 
-  const handleResizeEnd = () => {
-    setIsResizing(false);
+  const handleColumnResizeMove = (e: MouseEvent) => {
+    if (!resizingColumn) return;
+    
+    const column = columns.find(c => c.id === resizingColumn);
+    if (!column) return;
+    
+    const deltaX = e.clientX - resizeStartX;
+    const newWidth = Math.max(column.minWidth, Math.min(column.maxWidth, resizeStartWidth + deltaX));
+    
+    setColumns(prev => prev.map(col =>
+      col.id === resizingColumn ? { ...col, width: newWidth } : col
+    ));
+  };
+
+  const handleColumnResizeEnd = () => {
+    setResizingColumn(null);
   };
 
   // Add/remove resize listeners
   useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleResizeMove);
-      document.addEventListener('mouseup', handleResizeEnd);
+    if (resizingColumn) {
+      document.addEventListener('mousemove', handleColumnResizeMove);
+      document.addEventListener('mouseup', handleColumnResizeEnd);
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     } else {
-      document.removeEventListener('mousemove', handleResizeMove);
-      document.removeEventListener('mouseup', handleResizeEnd);
+      document.removeEventListener('mousemove', handleColumnResizeMove);
+      document.removeEventListener('mouseup', handleColumnResizeEnd);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleResizeMove);
-      document.removeEventListener('mouseup', handleResizeEnd);
+      document.removeEventListener('mousemove', handleColumnResizeMove);
+      document.removeEventListener('mouseup', handleColumnResizeEnd);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isResizing]);
+  }, [resizingColumn, resizeStartX, resizeStartWidth]);
 
   // Drag handlers
   const handleTaskMouseDown = (e: React.MouseEvent, activityId: string, mode: 'move' | 'resize-start' | 'resize-end') => {
@@ -707,6 +735,11 @@ export function WBSPage() {
   };
 
   const renderRow = (row: RowItem) => {
+    const treeColumn = columns.find(c => c.id === 'tree');
+    const progressColumn = columns.find(c => c.id === 'progress');
+    const dependenciesColumn = columns.find(c => c.id === 'dependencies');
+    const datesColumn = columns.find(c => c.id === 'dates');
+    
     if (row.type === 'wbs') {
       const { node, depth } = row;
       const isExpanded = expandedNodes.has(node.id);
@@ -716,76 +749,102 @@ export function WBSPage() {
       return (
         <div
           key={`wbs-${node.id}`}
-          className="flex items-center gap-2 py-2 px-4 hover:bg-gray-50 border-b"
-          style={{ 
-            paddingLeft: `${depth * 24 + 16}px`,
-            height: ROW_HEIGHT,
-          }}
+          className="flex border-b hover:bg-gray-50"
+          style={{ height: ROW_HEIGHT }}
         >
-          <button
-            onClick={() => toggleNode(node.id)}
-            className="w-5 h-5 flex items-center justify-center hover:bg-gray-200 rounded flex-shrink-0"
-          >
-            {hasChildren || hasActivities ? (
-              isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )
-            ) : (
-              <span className="w-4" />
-            )}
-          </button>
-          
-          <FolderTree className="w-4 h-4 text-blue-600 flex-shrink-0" />
-          
-          <div className="flex items-baseline gap-2 flex-1 min-w-0">
-            <span className="font-mono text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-0.5 rounded">
-              {node.code}
-            </span>
-            <span className="font-semibold truncate text-gray-900">{node.name}</span>
-          </div>
-          
-          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingWBSNode(node);
+          {/* Tree Column */}
+          {treeColumn?.visible && (
+            <div
+              className="flex items-center gap-2 py-2 px-4 border-r"
+              style={{ 
+                width: treeColumn.width,
+                paddingLeft: `${depth * 24 + 16}px`,
               }}
-              title="Chỉnh sửa WBS node"
             >
-              <Pencil className="w-3 h-3" />
-            </Button>
-            
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                setParentNodeForCreate(node);
-                setCreatingWBSNode(true);
-              }}
-              title="Thêm WBS node con"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              WBS Node
-            </Button>
-            
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log('Add activity to', node.id);
-              }}
-              title="Thêm Activity"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Activity
-            </Button>
-          </div>
+              <button
+                onClick={() => toggleNode(node.id)}
+                className="w-5 h-5 flex items-center justify-center hover:bg-gray-200 rounded flex-shrink-0"
+              >
+                {hasChildren || hasActivities ? (
+                  isExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )
+                ) : (
+                  <span className="w-4" />
+                )}
+              </button>
+              
+              <FolderTree className="w-4 h-4 text-blue-600 flex-shrink-0" />
+              
+              <div className="flex items-baseline gap-2 flex-1 min-w-0">
+                <span className="font-mono text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-0.5 rounded">
+                  {node.code}
+                </span>
+                <span className="font-semibold truncate text-gray-900">{node.name}</span>
+              </div>
+              
+              <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingWBSNode(node);
+                  }}
+                  title="Chỉnh sửa WBS node"
+                  className="h-7 w-7 p-0"
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setParentNodeForCreate(node);
+                    setCreatingWBSNode(true);
+                  }}
+                  title="Thêm WBS node con"
+                  className="h-7 px-2"
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Progress Column */}
+          {progressColumn?.visible && (
+            <div className="flex items-center justify-center py-2 px-4 border-r" style={{ width: progressColumn.width }}>
+              <span className="text-sm text-gray-400">-</span>
+            </div>
+          )}
+          
+          {/* Dependencies Column */}
+          {dependenciesColumn?.visible && (
+            <div className="flex items-center justify-center py-2 px-4 border-r" style={{ width: dependenciesColumn.width }}>
+              <span className="text-sm text-gray-400">-</span>
+            </div>
+          )}
+          
+          {/* Dates Column */}
+          {datesColumn?.visible && (
+            <div className="flex items-center py-2 px-4 border-r" style={{ width: datesColumn.width }}>
+              {(() => {
+                const dateRange = getWBSNodeDateRange(node);
+                if (!dateRange) return <span className="text-xs text-gray-400">No dates</span>;
+                
+                return (
+                  <span className="text-xs text-gray-600">
+                    {format(dateRange.startDate, 'dd/MM', { locale: vi })} → {format(dateRange.endDate, 'dd/MM', { locale: vi })}
+                  </span>
+                );
+              })()}
+            </div>
+          )}
         </div>
       );
     } else {
@@ -797,118 +856,112 @@ export function WBSPage() {
       return (
         <div
           key={`activity-${activity.id}`}
-          className="flex items-center gap-2 py-2 px-4 hover:bg-blue-50 border-b bg-gray-50/50"
-          style={{ 
-            paddingLeft: `${depth * 24 + 16}px`,
-            height: ROW_HEIGHT,
-          }}
+          className="flex border-b hover:bg-blue-50 bg-gray-50/50"
+          style={{ height: ROW_HEIGHT }}
         >
-          <span className="w-5 flex-shrink-0" />
-          <ListChecks className="w-4 h-4 text-green-600 flex-shrink-0" />
-          
-          <div className="flex items-baseline gap-2 flex-1 min-w-0">
-            <span className="font-mono text-xs text-green-600 font-semibold flex-shrink-0 bg-green-50 px-2 py-0.5 rounded">
-              {activity.code}
-            </span>
-            <span className="text-sm truncate text-gray-700">{activity.name}</span>
-          </div>
-          
-          {/* Progress edit */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {isEditingThis ? (
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={progressValue}
-                  onChange={(e) => setProgressValue(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === 'Enter') {
-                      const newProgress = Math.max(0, Math.min(100, parseInt(progressValue) || 0));
-                      setActivities(prev => prev.map(a =>
-                        a.id === activity.id ? { ...a, percentComplete: newProgress } : a
-                      ));
-                      setEditingProgress(null);
-                      console.log('✅ Updated progress:', activity.id, newProgress + '%');
-                      
-                      // Save to backend
-                      if (currentProjectId) {
-                        try {
-                          await activityApi.update(currentProjectId, activity.id, { percentComplete: newProgress });
-                        } catch (error) {
-                          console.error('❌ Failed to save progress:', error);
-                        }
-                      }
-                    } else if (e.key === 'Escape') {
-                      setEditingProgress(null);
-                    }
-                  }}
-                  className="w-16 h-7 text-xs"
-                  autoFocus
-                />
-                <span className="text-xs text-gray-500">%</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2"
-                  onClick={async () => {
-                    const newProgress = Math.max(0, Math.min(100, parseInt(progressValue) || 0));
-                    setActivities(prev => prev.map(a =>
-                      a.id === activity.id ? { ...a, percentComplete: newProgress } : a
-                    ));
-                    setEditingProgress(null);
-                    console.log('✅ Updated progress:', activity.id, newProgress + '%');
-                    
-                    // Save to backend
-                    if (currentProjectId) {
-                      try {
-                        await activityApi.update(currentProjectId, activity.id, { percentComplete: newProgress });
-                      } catch (error) {
-                        console.error('❌ Failed to save progress:', error);
-                      }
-                    }
-                  }}
-                >
-                  ✓
-                </Button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setEditingProgress(activity.id);
-                  setProgressValue(activity.percentComplete.toString());
-                }}
-                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-100 transition-colors"
-              >
-                <span className="text-sm font-semibold text-blue-600">
-                  {activity.percentComplete}%
+          {/* Tree Column */}
+          {treeColumn?.visible && (
+            <div
+              className="flex items-center gap-2 py-2 px-4 border-r"
+              style={{ 
+                width: treeColumn.width,
+                paddingLeft: `${depth * 24 + 16}px`,
+              }}
+            >
+              <span className="w-5 flex-shrink-0" />
+              <ListChecks className="w-4 h-4 text-green-600 flex-shrink-0" />
+              
+              <div className="flex items-baseline gap-2 flex-1 min-w-0">
+                <span className="font-mono text-xs text-green-600 font-semibold flex-shrink-0 bg-green-50 px-2 py-0.5 rounded">
+                  {activity.code}
                 </span>
-                <Edit2 className="w-3 h-3 text-gray-400" />
+                <span className="text-sm truncate text-gray-700">{activity.name}</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Progress Column */}
+          {progressColumn?.visible && (
+            <div className="flex items-center justify-center py-2 px-2 border-r" style={{ width: progressColumn.width }}>
+              {isEditingThis ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={progressValue}
+                    onChange={(e) => setProgressValue(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        const newProgress = Math.max(0, Math.min(100, parseInt(progressValue) || 0));
+                        setActivities(prev => prev.map(a =>
+                          a.id === activity.id ? { ...a, percentComplete: newProgress } : a
+                        ));
+                        setEditingProgress(null);
+                        console.log('✅ Updated progress:', activity.id, newProgress + '%');
+                        
+                        if (currentProjectId) {
+                          try {
+                            await activityApi.update(currentProjectId, activity.id, { percentComplete: newProgress });
+                          } catch (error) {
+                            console.error('❌ Failed to save progress:', error);
+                          }
+                        }
+                      } else if (e.key === 'Escape') {
+                        setEditingProgress(null);
+                      }
+                    }}
+                    className="w-12 h-7 text-xs px-1"
+                    autoFocus
+                  />
+                  <span className="text-xs text-gray-500">%</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditingProgress(activity.id);
+                    setProgressValue(activity.percentComplete.toString());
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-100 transition-colors"
+                >
+                  <span className="text-sm font-semibold text-blue-600">
+                    {activity.percentComplete}%
+                  </span>
+                  <Edit2 className="w-3 h-3 text-gray-400" />
+                </button>
+              )}
+            </div>
+          )}
+          
+          {/* Dependencies Column */}
+          {dependenciesColumn?.visible && (
+            <div className="flex items-center justify-center py-2 px-2 border-r" style={{ width: dependenciesColumn.width }}>
+              <button
+                onClick={() => setEditingDependencies(activity)}
+                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-100 transition-colors"
+                title="Quản lý Dependencies"
+              >
+                <Link className="w-3 h-3 text-indigo-600" />
+                <span className="text-xs text-indigo-600 font-semibold">
+                  {activity.predecessors?.length || 0}
+                </span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
           
-          {/* Dependencies indicator */}
-          <button
-            onClick={() => setEditingDependencies(activity)}
-            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-100 transition-colors flex-shrink-0"
-            title="Quản lý Dependencies"
-          >
-            <Link className="w-3 h-3 text-indigo-600" />
-            <span className="text-xs text-indigo-600 font-semibold">
-              {activity.predecessors?.length || 0}
-            </span>
-          </button>
-          
-          <span className="text-xs text-gray-400 flex-shrink-0">
-            {startDate && endDate && (
-              <>
-                {format(startDate, 'dd/MM', { locale: vi })} → {format(endDate, 'dd/MM')}
-                <span className="ml-1">({activity.durationDays}d)</span>
-              </>
-            )}
-          </span>
+          {/* Dates Column */}
+          {datesColumn?.visible && (
+            <div className="flex items-center py-2 px-4 border-r" style={{ width: datesColumn.width }}>
+              <span className="text-xs text-gray-600">
+                {startDate && endDate && (
+                  <>
+                    {format(startDate, 'dd/MM', { locale: vi })} → {format(endDate, 'dd/MM')}
+                    <span className="ml-1 text-gray-400">({activity.durationDays}d)</span>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
         </div>
       );
     }
@@ -1099,20 +1152,32 @@ export function WBSPage() {
         )}
         
         {/* Header */}
-        <div className="flex border-b">
-          <div className="bg-gray-100 px-4 py-3 font-semibold border-r" style={{ width: sidebarWidth }}>
-            Cấu trúc WBS
-          </div>
-          <div 
-            className="w-1 bg-gray-300 hover:bg-blue-500 cursor-col-resize transition-colors flex-shrink-0 relative group"
-            onMouseDown={handleResizeStart}
-            title="Kéo để thay đổi kích thước"
-          >
-            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-gray-400 group-hover:bg-blue-600 transition-colors" />
-          </div>
-          <div className="flex-1 bg-gray-100">
+        <div className="flex border-b bg-gray-100">
+          {/* WBS Columns Headers */}
+          {columns.filter(col => col.visible).map((col) => (
+            <div key={col.id} className="relative flex items-center">
+              <div 
+                className="px-4 py-3 font-semibold text-sm border-r flex items-center justify-between"
+                style={{ width: col.width }}
+              >
+                <span>{col.label}</span>
+                {col.resizable && (
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors group"
+                    onMouseDown={(e) => handleColumnResizeStart(e, col.id)}
+                    title="Kéo để thay đổi kích thước"
+                  >
+                    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-gray-400 group-hover:bg-blue-600 transition-colors" />
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          
+          {/* Gantt Header */}
+          <div className="flex-1 border-l">
             <GanttHeader
-              columns={columns}
+              columns={ganttColumns}
               columnWidth={columnWidth}
               viewMode={viewMode}
             />
@@ -1121,22 +1186,9 @@ export function WBSPage() {
 
         {/* Content */}
         <div className="flex overflow-auto" style={{ maxHeight: 600 }}>
-          {/* Left: WBS Tree */}
-          <div className="border-r overflow-y-auto" style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}>
+          {/* Left: WBS Tree with Columns */}
+          <div className="border-r overflow-y-auto" style={{ minWidth: columns.reduce((sum, col) => sum + (col.visible ? col.width : 0), 0) }}>
             {visibleRows.map((row) => renderRow(row))}
-          </div>
-
-          {/* Resizer */}
-          <div 
-            className={`w-1 flex-shrink-0 cursor-col-resize transition-colors relative group ${
-              isResizing ? 'bg-blue-500' : 'bg-gray-300 hover:bg-blue-400'
-            }`}
-            onMouseDown={handleResizeStart}
-            title="Kéo để thay đổi kích thước"
-          >
-            <div className={`absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 transition-colors ${
-              isResizing ? 'bg-blue-700' : 'bg-gray-400 group-hover:bg-blue-600'
-            }`} />
           </div>
 
           {/* Right: Gantt Chart */}
@@ -1146,7 +1198,7 @@ export function WBSPage() {
           >
             {/* Grid */}
             <GanttGrid
-              columns={columns}
+              columns={ganttColumns}
               columnWidth={columnWidth}
               rowHeight={ROW_HEIGHT}
               rowCount={visibleRows.length}
