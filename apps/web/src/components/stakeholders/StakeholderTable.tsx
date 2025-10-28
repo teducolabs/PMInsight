@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { stakeholderApi } from '@/lib/api/stakeholder';
 import { Stakeholder } from '@/types/stakeholder';
 import {
@@ -12,16 +13,74 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Mail, Phone } from 'lucide-react';
+import { UpdateStakeholderDialog } from './UpdateStakeholderDialog';
+import { toast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface StakeholderTableProps {
   projectId: string;
 }
 
 export function StakeholderTable({ projectId }: StakeholderTableProps) {
-  const { data: stakeholders, isLoading } = useQuery({
+  const queryClient = useQueryClient();
+  const [selectedStakeholder, setSelectedStakeholder] = useState<Stakeholder | null>(null);
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  const [stakeholderToDelete, setStakeholderToDelete] = useState<Stakeholder | null>(null);
+
+  const { data: response, isLoading } = useQuery({
     queryKey: ['stakeholders', projectId],
     queryFn: () => stakeholderApi.getByProject(projectId),
   });
+
+  const stakeholders = response?.items || [];
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => stakeholderApi.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['stakeholders', projectId] });
+      await queryClient.refetchQueries({ queryKey: ['stakeholders', projectId] });
+      
+      toast({
+        variant: "success",
+        title: "✅ Thành công!",
+        description: `Đã xóa stakeholder "${stakeholderToDelete?.name}" thành công.`,
+      });
+      
+      setStakeholderToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "❌ Lỗi",
+        description: error.message || 'Không thể xóa stakeholder. Vui lòng thử lại.',
+      });
+      setStakeholderToDelete(null);
+    },
+  });
+
+  const handleEdit = (stakeholder: Stakeholder) => {
+    setSelectedStakeholder(stakeholder);
+    setIsUpdateDialogOpen(true);
+  };
+
+  const handleDeleteClick = (stakeholder: Stakeholder) => {
+    setStakeholderToDelete(stakeholder);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (stakeholderToDelete) {
+      deleteMutation.mutate(stakeholderToDelete.id);
+    }
+  };
 
   const getInfluenceColor = (level: number) => {
     if (level >= 4) return 'bg-red-100 text-red-800';
@@ -103,10 +162,19 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="icon">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleEdit(stakeholder)}
+                  >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => handleDeleteClick(stakeholder)}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -115,6 +183,36 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
           ))}
         </TableBody>
       </Table>
+
+      {/* Update Dialog */}
+      <UpdateStakeholderDialog
+        projectId={projectId}
+        stakeholder={selectedStakeholder}
+        open={isUpdateDialogOpen}
+        onOpenChange={setIsUpdateDialogOpen}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!stakeholderToDelete} onOpenChange={() => setStakeholderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn xóa stakeholder <strong>"{stakeholderToDelete?.name}"</strong>? 
+              Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -155,3 +155,12 @@ public enum InterestLevel
     Medium,
     High
 }
+
+public enum StakeholderType
+{
+    Internal,
+    External,
+    Customer,
+    Vendor,
+    Partner
+}

@@ -46,27 +46,13 @@ public class CreateStakeholderCommandHandler
             OrganizationId = _currentUserService.OrganizationId,
             Name = request.Name,
             Role = request.Role,
-            Influence = request.Influence switch
-            {
-                double i when i < 0.33 => InfluenceLevel.Low,
-                double i when i < 0.66 => InfluenceLevel.Medium,
-                _ => InfluenceLevel.High
-            },
-            Interest = request.Interest switch
-            {
-                double i when i < 0.33 => InterestLevel.Low,
-                double i when i < 0.66 => InterestLevel.Medium,
-                _ => InterestLevel.High
-            },
-            EngagementPlan = request.EngagementStrategy,
-            Contacts = new List<Contact>
-            {
-                new Contact
-                {
-                    Type = ContactType.Email,
-                    Value = request.ContactInfo
-                }
-            }
+            Email = request.Email,
+            Phone = request.Phone,
+            Type = Enum.Parse<StakeholderType>(request.Type),
+            Influence = (InfluenceLevel)request.Influence,
+            Interest = (InterestLevel)request.Interest,
+            CommunicationPreference = request.CommunicationPreference,
+            Notes = request.Notes,
         };
 
         await _stakeholderRepository.CreateAsync(stakeholder, cancellationToken);
@@ -77,14 +63,13 @@ public class CreateStakeholderCommandHandler
             ProjectId = stakeholder.ProjectId,
             Name = stakeholder.Name,
             Role = stakeholder.Role,
-            Influence = stakeholder.Influence.ToString(),
-            Interest = stakeholder.Interest.ToString(),
-            EngagementPlan = stakeholder.EngagementPlan ?? "",
-            Contacts = stakeholder.Contacts.Select(c => new ContactDto
-            {
-                Type = c.Type.ToString(),
-                Value = c.Value
-            }).ToList(),
+            Email = stakeholder.Email,
+            Phone = stakeholder.Phone,
+            Type = stakeholder.Type,
+            Influence = stakeholder.Influence,
+            Interest = stakeholder.Interest,
+            CommunicationPreference = stakeholder.CommunicationPreference,
+            Notes = stakeholder.Notes,
             CreatedAt = stakeholder.CreatedAt,
             UpdatedAt = stakeholder.UpdatedAt
         };

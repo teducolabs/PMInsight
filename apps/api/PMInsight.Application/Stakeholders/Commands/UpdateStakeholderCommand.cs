@@ -8,12 +8,15 @@ namespace PMInsight.Application.Stakeholders.Commands;
 public record UpdateStakeholderCommand : IRequest<StakeholderDto>
 {
     public required string Id { get; init; }
-    public required string Name { get; init; }
-    public required string Role { get; init; }
-    public required InfluenceLevel Influence { get; init; }
-    public required InterestLevel Interest { get; init; }
-    public string? EngagementPlan { get; init; }
-    public required IEnumerable<ContactDto> Contacts { get; init; }
+    public string? Name { get; init; }
+    public string? Role { get; init; }
+    public string? Email { get; init; }
+    public string? Phone { get; init; }
+    public string? Type { get; init; }
+    public int? Influence { get; init; }
+    public int? Interest { get; init; }
+    public string? CommunicationPreference { get; init; }
+    public string? Notes { get; init; }
 }
 
 public class UpdateStakeholderCommandValidator : AbstractValidator<UpdateStakeholderCommand>
@@ -24,30 +27,32 @@ public class UpdateStakeholderCommandValidator : AbstractValidator<UpdateStakeho
             .NotEmpty();
 
         RuleFor(x => x.Name)
-            .NotEmpty()
-            .MaximumLength(100);
+            .MaximumLength(200)
+            .When(x => !string.IsNullOrEmpty(x.Name));
 
         RuleFor(x => x.Role)
-            .NotEmpty()
-            .MaximumLength(100);
+            .MaximumLength(200)
+            .When(x => !string.IsNullOrEmpty(x.Role));
 
-        RuleFor(x => x.EngagementPlan)
-            .MaximumLength(500);
+        RuleFor(x => x.Email)
+            .EmailAddress()
+            .When(x => !string.IsNullOrEmpty(x.Email));
 
-        RuleFor(x => x.Contacts)
-            .NotEmpty();
+        RuleFor(x => x.Type)
+            .Must(x => x is "Internal" or "External" or "Customer" or "Vendor" or "Partner")
+            .WithMessage("Type must be one of: Internal, External, Customer, Vendor, Partner")
+            .When(x => !string.IsNullOrEmpty(x.Type));
 
-        RuleForEach(x => x.Contacts)
-            .ChildRules(contact =>
-            {
-                contact.RuleFor(x => x.Type)
-                    .NotEmpty()
-                    .Must(x => Enum.TryParse<ContactType>(x, out _))
-                    .WithMessage("Invalid contact type");
+        RuleFor(x => x.Influence)
+            .InclusiveBetween(1, 5)
+            .When(x => x.Influence.HasValue);
 
-                contact.RuleFor(x => x.Value)
-                    .NotEmpty()
-                    .MaximumLength(200);
-            });
+        RuleFor(x => x.Interest)
+            .InclusiveBetween(1, 5)
+            .When(x => x.Interest.HasValue);
+
+        RuleFor(x => x.Notes)
+            .MaximumLength(1000)
+            .When(x => !string.IsNullOrEmpty(x.Notes));
     }
 }

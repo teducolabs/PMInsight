@@ -7,10 +7,12 @@ interface StakeholderMatrixProps {
 }
 
 export function StakeholderMatrix({ projectId }: StakeholderMatrixProps) {
-  const { data: stakeholders, isLoading } = useQuery({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['stakeholders', projectId],
     queryFn: () => stakeholderApi.getByProject(projectId),
   });
+
+  const stakeholders = response?.items || [];
 
   if (isLoading) {
     return <div>Đang tải...</div>;

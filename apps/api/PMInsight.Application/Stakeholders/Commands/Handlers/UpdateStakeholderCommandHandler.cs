@@ -34,16 +34,33 @@ public class UpdateStakeholderCommandHandler : IRequestHandler<UpdateStakeholder
             throw new UnauthorizedAccessException("You don't have permission to update this stakeholder");
         }
 
-        stakeholder.Name = request.Name;
-        stakeholder.Role = request.Role;
-        stakeholder.Influence = request.Influence;
-        stakeholder.Interest = request.Interest;
-        stakeholder.EngagementPlan = request.EngagementPlan;
-        stakeholder.Contacts = request.Contacts.Select(c => new Contact
-        {
-            Type = Enum.Parse<ContactType>(c.Type),
-            Value = c.Value
-        }).ToList();
+        // Update only the fields that are provided
+        if (request.Name != null)
+            stakeholder.Name = request.Name;
+        
+        if (request.Role != null)
+            stakeholder.Role = request.Role;
+        
+        if (request.Email != null)
+            stakeholder.Email = request.Email;
+        
+        if (request.Phone != null)
+            stakeholder.Phone = request.Phone;
+        
+        if (request.Type != null)
+            stakeholder.Type = Enum.Parse<StakeholderType>(request.Type);
+        
+        if (request.Influence.HasValue)
+            stakeholder.Influence = (InfluenceLevel)request.Influence.Value;
+        
+        if (request.Interest.HasValue)
+            stakeholder.Interest = (InterestLevel)request.Interest.Value;
+        
+        if (request.CommunicationPreference != null)
+            stakeholder.CommunicationPreference = request.CommunicationPreference;
+        
+        if (request.Notes != null)
+            stakeholder.Notes = request.Notes;
         
         stakeholder.UpdatedAt = DateTime.UtcNow;
 
@@ -55,14 +72,13 @@ public class UpdateStakeholderCommandHandler : IRequestHandler<UpdateStakeholder
             ProjectId = stakeholder.ProjectId,
             Name = stakeholder.Name,
             Role = stakeholder.Role,
-            Influence = stakeholder.Influence.ToString(),
-            Interest = stakeholder.Interest.ToString(),
-            EngagementPlan = stakeholder.EngagementPlan ?? "",
-            Contacts = stakeholder.Contacts.Select(c => new ContactDto
-            {
-                Type = c.Type.ToString(),
-                Value = c.Value
-            }),
+            Email = stakeholder.Email,
+            Phone = stakeholder.Phone,
+            Type = stakeholder.Type,
+            Influence = stakeholder.Influence,
+            Interest = stakeholder.Interest,
+            CommunicationPreference = stakeholder.CommunicationPreference,
+            Notes = stakeholder.Notes,
             CreatedAt = stakeholder.CreatedAt,
             UpdatedAt = stakeholder.UpdatedAt
         };

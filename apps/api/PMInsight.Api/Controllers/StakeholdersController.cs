@@ -20,31 +20,31 @@ public class StakeholdersController : ControllerBase
         _mediator = mediator;
     }
 
+    /// <summary>
+    /// Get all stakeholders for a project with pagination
+    /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(PaginatedResponse<StakeholderDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PaginatedResponse<StakeholderDto>>> GetProjectStakeholders(
-        [FromQuery] string projectId,
-        [FromQuery] string? category = null,
-        [FromQuery] double? minInfluence = null,
-        [FromQuery] double? minInterest = null,
-        [FromQuery] string? searchText = null,
-        [FromQuery] int pageSize = 20,
-        [FromQuery] int pageNumber = 1)
+        [FromQuery] GetProjectStakeholdersRequest request)
     {
         var query = new GetProjectStakeholdersQuery
         {
-            ProjectId = projectId,
-            MinInfluence = (int?)Math.Round(minInfluence ?? 0),
-            MinInterest = (int?)Math.Round(minInterest ?? 0),
-            SearchText = searchText,
-            PageSize = pageSize,
-            PageNumber = pageNumber
+            ProjectId = request.ProjectId,
+            MinInfluence = request.MinInfluence,
+            MinInterest = request.MinInterest,
+            SearchText = request.SearchText,
+            PageSize = request.PageSize,
+            PageNumber = request.PageNumber
         };
 
         var result = await _mediator.Send(query);
         return Ok(result);
     }
 
+    /// <summary>
+    /// Get stakeholder matrix for visualization
+    /// </summary>
     [HttpGet("matrix/{projectId}")]
     [ProducesResponseType(typeof(StakeholderMatrixDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<StakeholderMatrixDto>> GetStakeholderMatrix(string projectId)
@@ -53,6 +53,9 @@ public class StakeholdersController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Get a single stakeholder by ID
+    /// </summary>
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(StakeholderDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -65,23 +68,57 @@ public class StakeholdersController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Create a new stakeholder
+    /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(StakeholderDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<StakeholderDto>> CreateStakeholder(CreateStakeholderCommand command)
+    public async Task<ActionResult<StakeholderDto>> CreateStakeholder([FromBody] CreateStakeholderRequest request)
     {
+        var command = new CreateStakeholderCommand
+        {
+            ProjectId = request.ProjectId,
+            Name = request.Name,
+            Role = request.Role,
+            Email = request.Email,
+            Phone = request.Phone,
+            Type = request.Type,
+            Influence = request.Influence,
+            Interest = request.Interest,
+            CommunicationPreference = request.CommunicationPreference,
+            Notes = request.Notes
+        };
+
         var result = await _mediator.Send(command);
         return CreatedAtAction(nameof(GetStakeholder), new { id = result.Id }, result);
     }
 
+    /// <summary>
+    /// Update an existing stakeholder
+    /// </summary>
     [HttpPut("{id}")]
     [ProducesResponseType(typeof(StakeholderDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<StakeholderDto>> UpdateStakeholder(string id, UpdateStakeholderCommand command)
+    public async Task<ActionResult<StakeholderDto>> UpdateStakeholder(string id, [FromBody] UpdateStakeholderRequest request)
     {
-        if (id != command.Id)
-            return BadRequest();
+        if (id != request.Id)
+            return BadRequest("ID mismatch");
+
+        var command = new UpdateStakeholderCommand
+        {
+            Id = request.Id,
+            Name = request.Name,
+            Role = request.Role,
+            Email = request.Email,
+            Phone = request.Phone,
+            Type = request.Type,
+            Influence = request.Influence,
+            Interest = request.Interest,
+            CommunicationPreference = request.CommunicationPreference,
+            Notes = request.Notes
+        };
 
         var result = await _mediator.Send(command);
         if (result == null)
@@ -90,8 +127,11 @@ public class StakeholdersController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Delete a stakeholder
+    /// </summary>
     [HttpDelete("{id}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteStakeholder(string id)
     {
@@ -99,6 +139,6 @@ public class StakeholdersController : ControllerBase
         if (!result)
             return NotFound();
 
-        return Ok();
+        return NoContent();
     }
 }

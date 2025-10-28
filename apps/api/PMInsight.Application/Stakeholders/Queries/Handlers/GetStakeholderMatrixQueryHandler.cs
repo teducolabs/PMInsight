@@ -54,14 +54,13 @@ public class GetStakeholderMatrixQueryHandler : IRequestHandler<GetStakeholderMa
                     ProjectId = s.ProjectId,
                     Name = s.Name,
                     Role = s.Role,
-                    Influence = s.Influence.ToString(),
-                    Interest = s.Interest.ToString(),
-                    EngagementPlan = s.EngagementPlan ?? "",
-                    Contacts = s.Contacts.Select(c => new ContactDto
-                    {
-                        Type = c.Type.ToString(),
-                        Value = c.Value
-                    }),
+                    Email = s.Email,
+                    Phone = s.Phone,
+                    Type = s.Type,
+                    Influence = s.Influence,
+                    Interest = s.Interest,
+                    CommunicationPreference = s.CommunicationPreference,
+                    Notes = s.Notes,
                     CreatedAt = s.CreatedAt,
                     UpdatedAt = s.UpdatedAt
                 })

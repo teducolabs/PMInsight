@@ -90,14 +90,13 @@ public class GetProjectStakeholdersQueryHandler : IRequestHandler<GetProjectStak
             ProjectId = stakeholder.ProjectId,
             Name = stakeholder.Name,
             Role = stakeholder.Role,
-            Influence = stakeholder.Influence.ToString(),
-            Interest = stakeholder.Interest.ToString(),
-            EngagementPlan = stakeholder.EngagementPlan ?? "",
-            Contacts = stakeholder.Contacts.Select(c => new ContactDto
-            {
-                Type = c.Type.ToString(),
-                Value = c.Value
-            }),
+            Email = stakeholder.Email,
+            Phone = stakeholder.Phone,
+            Type = stakeholder.Type,
+            Influence = stakeholder.Influence,
+            Interest = stakeholder.Interest,
+            CommunicationPreference = stakeholder.CommunicationPreference,
+            Notes = stakeholder.Notes,
             CreatedAt = stakeholder.CreatedAt,
             UpdatedAt = stakeholder.UpdatedAt
         };

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/components/ui/use-toast';
 
 interface CreateStakeholderDialogProps {
   projectId: string;
@@ -44,10 +45,25 @@ export function CreateStakeholderDialog({ projectId, open, onOpenChange }: Creat
 
   const createMutation = useMutation({
     mutationFn: stakeholderApi.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stakeholders', projectId] });
+    onSuccess: async (newStakeholder) => {
+      await queryClient.invalidateQueries({ queryKey: ['stakeholders', projectId] });
+      await queryClient.refetchQueries({ queryKey: ['stakeholders', projectId] });
+      
+      toast({
+        variant: "success",
+        title: "✅ Thành công!",
+        description: `Đã tạo stakeholder "${newStakeholder.name}" thành công.`,
+      });
+      
       onOpenChange(false);
       resetForm();
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "❌ Lỗi",
+        description: error.message || 'Không thể tạo stakeholder. Vui lòng thử lại.',
+      });
     },
   });
 
