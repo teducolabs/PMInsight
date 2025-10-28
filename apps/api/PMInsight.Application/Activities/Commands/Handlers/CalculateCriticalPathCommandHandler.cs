@@ -9,7 +9,8 @@ namespace PMInsight.Application.Activities.Commands.Handlers;
 /// <summary>
 /// Calculates Critical Path using CPM (Critical Path Method) algorithm
 /// </summary>
-public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCriticalPathCommand, Unit>
+public class CalculateCriticalPathCommandHandler
+    : IRequestHandler<CalculateCriticalPathCommand, Unit>
 {
     private readonly IRepository<ScheduleActivity> _activityRepository;
 
@@ -18,12 +19,16 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
         _activityRepository = activityRepository;
     }
 
-    public async Task<Unit> Handle(CalculateCriticalPathCommand request, CancellationToken cancellationToken)
+    public async Task<Unit> Handle(
+        CalculateCriticalPathCommand request,
+        CancellationToken cancellationToken
+    )
     {
         // Get all activities for the project
         var activities = await _activityRepository.FindAsync(
             a => a.ProjectId == request.ProjectId,
-            cancellationToken);
+            cancellationToken
+        );
 
         if (!activities.Any())
         {
@@ -51,7 +56,10 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
         return Unit.Value;
     }
 
-    private void CalculateForwardPass(List<ScheduleActivity> activities, Dictionary<string, ScheduleActivity> activityDict)
+    private void CalculateForwardPass(
+        List<ScheduleActivity> activities,
+        Dictionary<string, ScheduleActivity> activityDict
+    )
     {
         // Find start activities (no predecessors)
         var startActivities = activities.Where(a => !a.Predecessors.Any()).ToList();
@@ -82,8 +90,8 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
 
             // Check if all predecessors are processed
             var allPredecessorsProcessed = activity.Predecessors.All(p =>
-                activityDict.ContainsKey(p.ActivityId) &&
-                processed.Contains(p.ActivityId));
+                activityDict.ContainsKey(p.ActivityId) && processed.Contains(p.ActivityId)
+            );
 
             if (!allPredecessorsProcessed)
             {
@@ -112,10 +120,14 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
                             predFinish = predActivity.EarlyStart!.Value.AddDays(pred.LagDays);
                             break;
                         case DependencyType.FF: // Finish-to-Finish
-                            predFinish = predActivity.EarlyFinish!.Value.AddDays(pred.LagDays - activity.DurationDays);
+                            predFinish = predActivity.EarlyFinish!.Value.AddDays(
+                                pred.LagDays - activity.DurationDays
+                            );
                             break;
                         case DependencyType.SF: // Start-to-Finish
-                            predFinish = predActivity.EarlyStart!.Value.AddDays(pred.LagDays - activity.DurationDays);
+                            predFinish = predActivity.EarlyStart!.Value.AddDays(
+                                pred.LagDays - activity.DurationDays
+                            );
                             break;
                         default:
                             predFinish = predActivity.EarlyFinish!.Value.AddDays(pred.LagDays);
@@ -143,7 +155,10 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
         }
     }
 
-    private void CalculateBackwardPass(List<ScheduleActivity> activities, Dictionary<string, ScheduleActivity> activityDict)
+    private void CalculateBackwardPass(
+        List<ScheduleActivity> activities,
+        Dictionary<string, ScheduleActivity> activityDict
+    )
     {
         // Find end activities (no successors)
         var endActivities = activities.Where(a => !a.Successors.Any()).ToList();
@@ -174,8 +189,8 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
 
             // Check if all successors are processed
             var allSuccessorsProcessed = activity.Successors.All(s =>
-                activityDict.ContainsKey(s.ActivityId) &&
-                processed.Contains(s.ActivityId));
+                activityDict.ContainsKey(s.ActivityId) && processed.Contains(s.ActivityId)
+            );
 
             if (!allSuccessorsProcessed)
             {
@@ -201,13 +216,17 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
                             succStart = succActivity.LateStart!.Value.AddDays(-succ.LagDays);
                             break;
                         case DependencyType.SS: // Start-to-Start
-                            succStart = succActivity.LateStart!.Value.AddDays(-succ.LagDays + activity.DurationDays);
+                            succStart = succActivity.LateStart!.Value.AddDays(
+                                -succ.LagDays + activity.DurationDays
+                            );
                             break;
                         case DependencyType.FF: // Finish-to-Finish
                             succStart = succActivity.LateFinish!.Value.AddDays(-succ.LagDays);
                             break;
                         case DependencyType.SF: // Start-to-Finish
-                            succStart = succActivity.LateFinish!.Value.AddDays(-succ.LagDays + activity.DurationDays);
+                            succStart = succActivity.LateFinish!.Value.AddDays(
+                                -succ.LagDays + activity.DurationDays
+                            );
                             break;
                         default:
                             succStart = succActivity.LateStart!.Value.AddDays(-succ.LagDays);
@@ -243,13 +262,14 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
                 continue;
 
             // Total Float = LS - ES (or LF - EF)
-            activity.TotalFloat = (decimal)(activity.LateStart.Value - activity.EarlyStart.Value).TotalDays;
+            activity.TotalFloat = (decimal)
+                (activity.LateStart.Value - activity.EarlyStart.Value).TotalDays;
 
             // Free Float = ES(successor) - EF(current)
             if (activity.Successors.Any())
             {
-                var minSuccessorES = activity.Successors
-                    .Select(s => activities.FirstOrDefault(a => a.Id == s.ActivityId))
+                var minSuccessorES = activity
+                    .Successors.Select(s => activities.FirstOrDefault(a => a.Id == s.ActivityId))
                     .Where(a => a?.EarlyStart.HasValue == true)
                     .Select(a => a!.EarlyStart!.Value)
                     .DefaultIfEmpty(DateTime.MaxValue)
@@ -257,7 +277,8 @@ public class CalculateCriticalPathCommandHandler : IRequestHandler<CalculateCrit
 
                 if (activity.EarlyFinish.HasValue && minSuccessorES != DateTime.MaxValue)
                 {
-                    activity.FreeFloat = (decimal)(minSuccessorES - activity.EarlyFinish.Value).TotalDays;
+                    activity.FreeFloat = (decimal)
+                        (minSuccessorES - activity.EarlyFinish.Value).TotalDays;
                 }
             }
             else

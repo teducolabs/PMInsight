@@ -10,20 +10,24 @@ namespace PMInsight.Application.Activities.Commands.Handlers;
 public class CreateActivityCommandHandler : IRequestHandler<CreateActivityCommand, ActivityDto>
 {
     private readonly IRepository<ScheduleActivity> _activityRepository;
-    private readonly IRepository<WBS> _wbsRepository;
+    private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public CreateActivityCommandHandler(
         IRepository<ScheduleActivity> activityRepository,
-        IRepository<WBS> wbsRepository,
-        ICurrentUserService currentUserService)
+        IRepository<Domain.Entities.WBS> wbsRepository,
+        ICurrentUserService currentUserService
+    )
     {
         _activityRepository = activityRepository;
         _wbsRepository = wbsRepository;
         _currentUserService = currentUserService;
     }
 
-    public async Task<ActivityDto> Handle(CreateActivityCommand request, CancellationToken cancellationToken)
+    public async Task<ActivityDto> Handle(
+        CreateActivityCommand request,
+        CancellationToken cancellationToken
+    )
     {
         var activity = new ScheduleActivity
         {
@@ -40,7 +44,7 @@ public class CreateActivityCommandHandler : IRequestHandler<CreateActivityComman
             AssignedUserIds = request.AssignedUserIds,
             EstimatedHours = request.EstimatedHours,
             PlannedCost = request.PlannedCost,
-            OrganizationId = _currentUserService.OrganizationId!
+            OrganizationId = _currentUserService.OrganizationId!,
         };
 
         // Add constraint if specified
@@ -49,7 +53,7 @@ public class CreateActivityCommandHandler : IRequestHandler<CreateActivityComman
             activity.Constraint = new ActivityConstraint
             {
                 Type = request.ConstraintType.Value,
-                ConstraintDate = request.ConstraintDate
+                ConstraintDate = request.ConstraintDate,
             };
         }
 
@@ -93,26 +97,34 @@ public class CreateActivityCommandHandler : IRequestHandler<CreateActivityComman
             Tags = activity.Tags,
             CreatedAt = activity.CreatedAt,
             UpdatedAt = activity.UpdatedAt,
-            Predecessors = activity.Predecessors.Select(p => new ActivityDependencyDto
-            {
-                ActivityId = p.ActivityId,
-                Type = p.Type,
-                LagDays = p.LagDays
-            }).ToList(),
-            Constraint = activity.Constraint != null ? new ActivityConstraintDto
-            {
-                Type = activity.Constraint.Type,
-                ConstraintDate = activity.Constraint.ConstraintDate
-            } : null,
-            Baseline = activity.Baseline != null ? new ActivityBaselineDto
-            {
-                StartDate = activity.Baseline.StartDate,
-                EndDate = activity.Baseline.EndDate,
-                DurationDays = activity.Baseline.DurationDays,
-                PlannedCost = activity.Baseline.PlannedCost,
-                BaselineDate = activity.Baseline.BaselineDate,
-                BaselineVersion = activity.Baseline.BaselineVersion
-            } : null
+            Predecessors = activity
+                .Predecessors.Select(p => new ActivityDependencyDto
+                {
+                    ActivityId = p.ActivityId,
+                    Type = p.Type,
+                    LagDays = p.LagDays,
+                })
+                .ToList(),
+            Constraint =
+                activity.Constraint != null
+                    ? new ActivityConstraintDto
+                    {
+                        Type = activity.Constraint.Type,
+                        ConstraintDate = activity.Constraint.ConstraintDate,
+                    }
+                    : null,
+            Baseline =
+                activity.Baseline != null
+                    ? new ActivityBaselineDto
+                    {
+                        StartDate = activity.Baseline.StartDate,
+                        EndDate = activity.Baseline.EndDate,
+                        DurationDays = activity.Baseline.DurationDays,
+                        PlannedCost = activity.Baseline.PlannedCost,
+                        BaselineDate = activity.Baseline.BaselineDate,
+                        BaselineVersion = activity.Baseline.BaselineVersion,
+                    }
+                    : null,
         };
     }
 }

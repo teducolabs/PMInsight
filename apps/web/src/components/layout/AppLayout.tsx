@@ -19,10 +19,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         <Header />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 p-6">
-          <div className="mx-auto max-w-7xl">
-            {children}
-          </div>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+          {children}
         </main>
 
         {/* Footer */}

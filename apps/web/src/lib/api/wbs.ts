@@ -40,6 +40,19 @@ export interface UpdateWBSDto {
 }
 
 export const wbsApi = {
+  // Get WBS by ID
+  getById: async (id: string): Promise<WBS | null> => {
+    try {
+      const response = await apiClient.get(`/wbs/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
   // Get WBS for a project
   getByProjectId: async (projectId: string): Promise<WBS | null> => {
     try {
@@ -59,7 +72,7 @@ export const wbsApi = {
     return response.data;
   },
 
-  // Update WBS
+  // Update WBS tree structure
   update: async (id: string, data: UpdateWBSDto): Promise<WBS> => {
     const response = await apiClient.put(`/wbs/${id}`, data);
     return response.data;
@@ -70,17 +83,13 @@ export const wbsApi = {
     await apiClient.delete(`/wbs/${id}`);
   },
 
-  // Lock/Unlock WBS for editing
+  // Lock WBS for editing (prevents concurrent modifications)
   lock: async (id: string): Promise<void> => {
     await apiClient.post(`/wbs/${id}/lock`);
   },
 
+  // Unlock WBS
   unlock: async (id: string): Promise<void> => {
     await apiClient.post(`/wbs/${id}/unlock`);
-  },
-
-  // Create baseline
-  createBaseline: async (id: string): Promise<void> => {
-    await apiClient.post(`/wbs/${id}/baseline`);
   },
 };

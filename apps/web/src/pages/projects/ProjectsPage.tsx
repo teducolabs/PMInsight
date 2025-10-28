@@ -27,7 +27,7 @@ export function ProjectsPage() {
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="w-full px-6 py-6 space-y-6">
       {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Dự án' }]} />
 

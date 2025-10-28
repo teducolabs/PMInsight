@@ -80,10 +80,10 @@ export function ProjectDetailPage() {
       Red: 'text-red-600 bg-red-50 border-red-200',
     };
     return colors[health] || 'text-gray-600 bg-gray-50 border-gray-200';
-  };
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full px-6 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

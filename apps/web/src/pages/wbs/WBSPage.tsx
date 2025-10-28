@@ -3,7 +3,7 @@ import { useProject } from '@/lib/context/ProjectContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp, Edit2, Link, Loader2 } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp, Edit2, Link, Loader2, Pencil } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { Activity, ActivityDependency } from '@/types/activity';
@@ -14,6 +14,8 @@ import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
 import { EditDependenciesDialog } from '@/components/schedule/EditDependenciesDialog';
+import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
+import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
 import { activityApi } from '@/lib/api/activity';
 import { wbsApi, type WBSNode as ApiWBSNode } from '@/lib/api/wbs';
 import { projectApi } from '@/lib/api/project';
@@ -27,12 +29,16 @@ type ViewMode = 'day' | 'week' | 'month';
 
 const ROW_HEIGHT = 50;
 const TASK_BAR_HEIGHT = 32;
-const SIDEBAR_WIDTH = 400;
+const DEFAULT_SIDEBAR_WIDTH = 400;
+const MIN_SIDEBAR_WIDTH = 250;
+const MAX_SIDEBAR_WIDTH = 600;
 
 export function WBSPage() {
   const { currentProjectId } = useProject();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [viewMode] = useState<ViewMode>('week');
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
   const [dragStartX, setDragStartX] = useState<number>(0);
@@ -53,8 +59,14 @@ export function WBSPage() {
   // Dependencies edit state
   const [editingDependencies, setEditingDependencies] = useState<Activity | null>(null);
   
+  // WBS Node edit state
+  const [creatingWBSNode, setCreatingWBSNode] = useState(false);
+  const [parentNodeForCreate, setParentNodeForCreate] = useState<WBSNode | null>(null);
+  const [editingWBSNode, setEditingWBSNode] = useState<WBSNode | null>(null);
+  
   // Data loading state
   const [loading, setLoading] = useState(true);
+  const [wbsId, setWbsId] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [wbsNodes, setWbsNodes] = useState<WBSNode[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -75,6 +87,7 @@ export function WBSPage() {
         ]);
         
         setProject(projectData);
+        setWbsId(wbsData?.id || null);
         setWbsNodes(wbsData?.tree || []);
         setActivities(activitiesData);
         
@@ -324,6 +337,47 @@ export function WBSPage() {
     });
   };
 
+  // Handle sidebar resize
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+    
+    const newWidth = e.clientX;
+    if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= MAX_SIDEBAR_WIDTH) {
+      setSidebarWidth(newWidth);
+    }
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+  };
+
+  // Add/remove resize listeners
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
   // Drag handlers
   const handleTaskMouseDown = (e: React.MouseEvent, activityId: string, mode: 'move' | 'resize-start' | 'resize-end') => {
     e.stopPropagation();
@@ -495,6 +549,105 @@ export function WBSPage() {
     setDragInfo(null);
   };
 
+  // Handle create WBS node
+  const handleCreateWBSNode = async (nodeData: Partial<WBSNode>) => {
+    if (!currentProjectId) return;
+    
+    try {
+      // Generate unique ID for new node
+      const newNode: WBSNode = {
+        ...nodeData,
+        id: `node-${Date.now()}`,
+        children: [],
+        level: nodeData.level || 1,
+        name: nodeData.name || '',
+        deliverables: nodeData.deliverables || [],
+        assumptions: nodeData.assumptions || [],
+        constraints: nodeData.constraints || [],
+        isWorkPackage: nodeData.isWorkPackage || false,
+      };
+      
+      // Update tree structure
+      let updatedTree: WBSNode[];
+      if (parentNodeForCreate) {
+        // Add as child of parent node
+        updatedTree = addNodeToTree(wbsNodes, parentNodeForCreate.id, newNode);
+      } else {
+        // Add as root level node
+        updatedTree = [...wbsNodes, newNode];
+      }
+      
+      setWbsNodes(updatedTree);
+      
+      // Save to backend
+      if (wbsId) {
+        await wbsApi.update(wbsId, { tree: updatedTree });
+      } else {
+        const newWBS = await wbsApi.create({ projectId: currentProjectId, tree: updatedTree });
+        setWbsId(newWBS.id);
+      }
+      
+      console.log('✅ Created WBS node:', newNode.code);
+    } catch (error) {
+      console.error('❌ Failed to create WBS node:', error);
+      throw error;
+    }
+  };
+  
+  // Handle update WBS node
+  const handleUpdateWBSNode = async (nodeData: Partial<WBSNode>) => {
+    if (!currentProjectId || !editingWBSNode || !wbsId) return;
+    
+    try {
+      // Update node in tree
+      const updatedTree = updateNodeInTree(wbsNodes, editingWBSNode.id, nodeData);
+      setWbsNodes(updatedTree);
+      
+      // Save to backend
+      await wbsApi.update(wbsId, { tree: updatedTree });
+      
+      console.log('✅ Updated WBS node:', editingWBSNode.code);
+    } catch (error) {
+      console.error('❌ Failed to update WBS node:', error);
+      throw error;
+    }
+  };
+  
+  // Helper: Add node to tree
+  const addNodeToTree = (nodes: WBSNode[], parentId: string, newNode: WBSNode): WBSNode[] => {
+    return nodes.map(node => {
+      if (node.id === parentId) {
+        return {
+          ...node,
+          children: [...node.children, newNode],
+        };
+      }
+      if (node.children.length > 0) {
+        return {
+          ...node,
+          children: addNodeToTree(node.children, parentId, newNode),
+        };
+      }
+      return node;
+    });
+  };
+  
+  // Helper: Update node in tree
+  const updateNodeInTree = (nodes: WBSNode[], nodeId: string, updates: Partial<WBSNode>): WBSNode[] => {
+    return nodes.map(node => {
+      if (node.id === nodeId) {
+        return { ...node, ...updates };
+      }
+      if (node.children.length > 0) {
+        return {
+          ...node,
+          children: updateNodeInTree(node.children, nodeId, updates),
+        };
+      }
+      return node;
+    });
+  };
+
   // Handle dependencies save
   const handleSaveDependencies = async (activityId: string, dependencies: ActivityDependency[]) => {
     if (!currentProjectId) return;
@@ -586,24 +739,53 @@ export function WBSPage() {
           
           <FolderTree className="w-4 h-4 text-blue-600 flex-shrink-0" />
           
-          <span className="font-mono text-sm text-gray-600 min-w-[60px] flex-shrink-0">
-            {node.code}
-          </span>
+          <div className="flex items-baseline gap-2 flex-1 min-w-0">
+            <span className="font-mono text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-0.5 rounded">
+              {node.code}
+            </span>
+            <span className="font-semibold truncate text-gray-900">{node.name}</span>
+          </div>
           
-          <span className="font-semibold truncate">{node.name}</span>
-          
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto flex-shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              console.log('Add activity to', node.id);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Activity
-          </Button>
+          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingWBSNode(node);
+              }}
+              title="Chỉnh sửa WBS node"
+            >
+              <Pencil className="w-3 h-3" />
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setParentNodeForCreate(node);
+                setCreatingWBSNode(true);
+              }}
+              title="Thêm WBS node con"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              WBS Node
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Add activity to', node.id);
+              }}
+              title="Thêm Activity"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Activity
+            </Button>
+          </div>
         </div>
       );
     } else {
@@ -623,10 +805,13 @@ export function WBSPage() {
         >
           <span className="w-5 flex-shrink-0" />
           <ListChecks className="w-4 h-4 text-green-600 flex-shrink-0" />
-          <span className="font-mono text-sm text-gray-600 min-w-[60px] flex-shrink-0">
-            {activity.code}
-          </span>
-          <span className="text-sm truncate flex-1">{activity.name}</span>
+          
+          <div className="flex items-baseline gap-2 flex-1 min-w-0">
+            <span className="font-mono text-xs text-green-600 font-semibold flex-shrink-0 bg-green-50 px-2 py-0.5 rounded">
+              {activity.code}
+            </span>
+            <span className="text-sm truncate text-gray-700">{activity.name}</span>
+          </div>
           
           {/* Progress edit */}
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -737,7 +922,7 @@ export function WBSPage() {
   // Show loading state
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="w-full px-6 py-6">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           <span className="ml-3 text-lg">Đang tải dữ liệu WBS & Activities...</span>
@@ -747,7 +932,29 @@ export function WBSPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="w-full px-6 py-6 space-y-6">
+      {/* Create WBS Node Dialog */}
+      <CreateWBSNodeDialog
+        open={creatingWBSNode}
+        onOpenChange={(open) => {
+          setCreatingWBSNode(open);
+          if (!open) setParentNodeForCreate(null);
+        }}
+        parentNode={parentNodeForCreate}
+        allNodes={wbsNodes}
+        onSave={handleCreateWBSNode}
+      />
+      
+      {/* Edit WBS Node Dialog */}
+      {editingWBSNode && (
+        <EditWBSNodeDialog
+          open={!!editingWBSNode}
+          onOpenChange={(open) => !open && setEditingWBSNode(null)}
+          node={editingWBSNode}
+          onSave={handleUpdateWBSNode}
+        />
+      )}
+      
       {/* Dependencies Edit Dialog */}
       {editingDependencies && (
         <EditDependenciesDialog
@@ -862,7 +1069,12 @@ export function WBSPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button>
+          <Button
+            onClick={() => {
+              setParentNodeForCreate(null);
+              setCreatingWBSNode(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Thêm WBS Node
           </Button>
@@ -888,8 +1100,15 @@ export function WBSPage() {
         
         {/* Header */}
         <div className="flex border-b">
-          <div className="bg-gray-100 px-4 py-3 font-semibold border-r" style={{ width: SIDEBAR_WIDTH }}>
+          <div className="bg-gray-100 px-4 py-3 font-semibold border-r" style={{ width: sidebarWidth }}>
             Cấu trúc WBS
+          </div>
+          <div 
+            className="w-1 bg-gray-300 hover:bg-blue-500 cursor-col-resize transition-colors flex-shrink-0 relative group"
+            onMouseDown={handleResizeStart}
+            title="Kéo để thay đổi kích thước"
+          >
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-gray-400 group-hover:bg-blue-600 transition-colors" />
           </div>
           <div className="flex-1 bg-gray-100">
             <GanttHeader
@@ -903,8 +1122,21 @@ export function WBSPage() {
         {/* Content */}
         <div className="flex overflow-auto" style={{ maxHeight: 600 }}>
           {/* Left: WBS Tree */}
-          <div className="border-r" style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH }}>
+          <div className="border-r overflow-y-auto" style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}>
             {visibleRows.map((row) => renderRow(row))}
+          </div>
+
+          {/* Resizer */}
+          <div 
+            className={`w-1 flex-shrink-0 cursor-col-resize transition-colors relative group ${
+              isResizing ? 'bg-blue-500' : 'bg-gray-300 hover:bg-blue-400'
+            }`}
+            onMouseDown={handleResizeStart}
+            title="Kéo để thay đổi kích thước"
+          >
+            <div className={`absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 transition-colors ${
+              isResizing ? 'bg-blue-700' : 'bg-gray-400 group-hover:bg-blue-600'
+            }`} />
           </div>
 
           {/* Right: Gantt Chart */}

@@ -17,7 +17,7 @@ export function StakeholdersPage() {
   // If no project selected, show alert
   if (!currentProjectId) {
     return (
-      <div className="space-y-6">
+      <div className="w-full px-6 py-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Stakeholders</h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -37,7 +37,7 @@ export function StakeholdersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full px-6 py-6 space-y-6">
       {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Stakeholders' }]} />
 
