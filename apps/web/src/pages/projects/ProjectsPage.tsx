@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ProjectStatsCards } from '@/components/projects/ProjectStatsCards';
@@ -20,6 +20,11 @@ export function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  
+  // Collapse states - default collapsed
+  const [isPMICardExpanded, setIsPMICardExpanded] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -41,15 +46,28 @@ export function ProjectsPage() {
       </div>
 
       {/* PMI Learning Card */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-blue-600 p-2 text-white">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div className="flex-1">
+      <div className="rounded-lg border border-blue-200 bg-blue-50">
+        <button
+          onClick={() => setIsPMICardExpanded(!isPMICardExpanded)}
+          className="w-full p-4 flex items-center justify-between hover:bg-blue-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-blue-600 p-2 text-white">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
             <h3 className="font-semibold text-blue-900">📚 PMI: Project Life Cycle</h3>
+          </div>
+          {isPMICardExpanded ? (
+            <ChevronUp className="h-5 w-5 text-blue-600" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-blue-600" />
+          )}
+        </button>
+        
+        {isPMICardExpanded && (
+          <div className="px-4 pb-4">
             <p className="mt-1 text-sm text-blue-800">
               Theo <strong>PMBOK Guide</strong>, dự án trải qua 5 process groups:
               <strong> Initiating → Planning → Executing → Monitoring & Controlling → Closing</strong>.
@@ -67,56 +85,92 @@ export function ProjectsPage() {
               </span>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Stats Cards */}
-      <ProjectStatsCards />
+      <div className="rounded-lg border bg-white">
+        <button
+          onClick={() => setIsStatsExpanded(!isStatsExpanded)}
+          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <h3 className="font-semibold text-gray-900">📊 Thống kê dự án</h3>
+          {isStatsExpanded ? (
+            <ChevronUp className="h-5 w-5 text-gray-600" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-gray-600" />
+          )}
+        </button>
+        
+        {isStatsExpanded && (
+          <div className="px-4 pb-4">
+            <ProjectStatsCards />
+          </div>
+        )}
+      </div>
 
       {/* Filters and Search */}
-      <div className="flex items-center gap-4 rounded-lg border bg-white p-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Tìm theo tên hoặc mã dự án..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+      <div className="rounded-lg border bg-white">
+        <button
+          onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <h3 className="font-semibold text-gray-900">Tìm kiếm & Lọc</h3>
           </div>
-        </div>
+          {isFiltersExpanded ? (
+            <ChevronUp className="h-5 w-5 text-gray-600" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-gray-600" />
+          )}
+        </button>
+        
+        {isFiltersExpanded && (
+          <div className="p-4 pt-0">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Tìm theo tên hoặc mã dự án..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
 
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value={ProjectStatus.Initiating}>Initiating</SelectItem>
-              <SelectItem value={ProjectStatus.Planning}>Planning</SelectItem>
-              <SelectItem value={ProjectStatus.Executing}>Executing</SelectItem>
-              <SelectItem value={ProjectStatus.MonitoringControlling}>Monitoring</SelectItem>
-              <SelectItem value={ProjectStatus.Closing}>Closing</SelectItem>
-              <SelectItem value={ProjectStatus.OnHold}>On Hold</SelectItem>
-            </SelectContent>
-          </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value={ProjectStatus.Initiating}>Initiating</SelectItem>
+                  <SelectItem value={ProjectStatus.Planning}>Planning</SelectItem>
+                  <SelectItem value={ProjectStatus.Executing}>Executing</SelectItem>
+                  <SelectItem value={ProjectStatus.MonitoringControlling}>Monitoring</SelectItem>
+                  <SelectItem value={ProjectStatus.Closing}>Closing</SelectItem>
+                  <SelectItem value={ProjectStatus.OnHold}>On Hold</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Độ ưu tiên" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value={ProjectPriority.Critical}>Critical</SelectItem>
-              <SelectItem value={ProjectPriority.High}>High</SelectItem>
-              <SelectItem value={ProjectPriority.Medium}>Medium</SelectItem>
-              <SelectItem value={ProjectPriority.Low}>Low</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Độ ưu tiên" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value={ProjectPriority.Critical}>Critical</SelectItem>
+                  <SelectItem value={ProjectPriority.High}>High</SelectItem>
+                  <SelectItem value={ProjectPriority.Medium}>Medium</SelectItem>
+                  <SelectItem value={ProjectPriority.Low}>Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Projects Table */}

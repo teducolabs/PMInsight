@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { projectApi } from '@/lib/api/project';
 import { Project } from '@/types/project';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '@/lib/context/ProjectContext';
 import {
@@ -17,6 +18,8 @@ import { Eye, Edit, Trash2, Calendar } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { EditProjectDialog } from './EditProjectDialog';
+import { DeleteProjectDialog } from './DeleteProjectDialog';
 
 interface ProjectsTableProps {
   searchQuery: string;
@@ -32,6 +35,9 @@ export function ProjectsTable({ searchQuery, statusFilter, priorityFilter }: Pro
 
   const navigate = useNavigate();
   const { setCurrentProject } = useProject();
+  
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
 
   const handleSelectProject = (project: Project) => {
     setCurrentProject(project.id, project.name);
@@ -185,13 +191,31 @@ export function ProjectsTable({ searchQuery, statusFilter, priorityFilter }: Pro
                     variant="ghost"
                     size="icon"
                     onClick={() => handleSelectProject(project)}
+                    title="Xem chi tiết"
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingProject(project);
+                    }}
+                    title="Chỉnh sửa"
+                  >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-red-600 hover:text-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingProject(project);
+                    }}
+                    title="Xóa"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -200,6 +224,24 @@ export function ProjectsTable({ searchQuery, statusFilter, priorityFilter }: Pro
           ))}
         </TableBody>
       </Table>
+      
+      {/* Edit Dialog */}
+      {editingProject && (
+        <EditProjectDialog
+          open={!!editingProject}
+          onOpenChange={(open) => !open && setEditingProject(null)}
+          project={editingProject}
+        />
+      )}
+      
+      {/* Delete Dialog */}
+      {deletingProject && (
+        <DeleteProjectDialog
+          open={!!deletingProject}
+          onOpenChange={(open) => !open && setDeletingProject(null)}
+          project={deletingProject}
+        />
+      )}
     </div>
   );
 }

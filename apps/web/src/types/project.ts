@@ -55,12 +55,22 @@ export interface CreateProjectDto {
   templateId?: string;
 }
 
-export interface UpdateProjectDto extends Partial<CreateProjectDto> {
-  id: string;
-  progress?: number;
-  health?: 'Green' | 'Yellow' | 'Red';
+export interface UpdateProjectDto {
+  code?: string;
+  name?: string;
+  description?: string;
+  status?: string; // ProjectStatus enum as string
+  priority?: string; // Low, Medium, High, Critical
+  startDate?: string;
+  endDate?: string;
   actualStartDate?: string;
   actualEndDate?: string;
+  budget?: number;
+  currency?: string;
+  progress?: number;
+  health?: 'Green' | 'Yellow' | 'Red';
+  projectManagerId?: string;
+  sponsorId?: string;
 }
 
 export interface ProjectStats {

@@ -103,16 +103,79 @@ public class ProjectsController : ControllerBase
     [ProducesResponseType(typeof(ProjectDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ProjectDto>> UpdateProject(string id, UpdateProjectCommand command)
+    public async Task<ActionResult<ProjectDto>> UpdateProject(string id, UpdateProjectRequest request)
     {
-        if (id != command.Id)
-            return BadRequest();
+        // Parse status enum if provided
+        ProjectStatus? status = null;
+        if (!string.IsNullOrEmpty(request.Status))
+        {
+            if (!Enum.TryParse<ProjectStatus>(request.Status, ignoreCase: true, out var parsedStatus))
+            {
+                return BadRequest($"Invalid status: {request.Status}");
+            }
+            status = parsedStatus;
+        }
+
+        // Validate priority if provided (string validation)
+        if (!string.IsNullOrEmpty(request.Priority))
+        {
+            var validPriorities = new[] { "Low", "Medium", "High", "Critical" };
+            if (!validPriorities.Contains(request.Priority, StringComparer.OrdinalIgnoreCase))
+            {
+                return BadRequest($"Invalid priority: {request.Priority}. Must be Low, Medium, High, or Critical");
+            }
+        }
+
+        // Validate health if provided
+        if (!string.IsNullOrEmpty(request.Health))
+        {
+            var validHealth = new[] { "Green", "Yellow", "Red" };
+            if (!validHealth.Contains(request.Health, StringComparer.OrdinalIgnoreCase))
+            {
+                return BadRequest($"Invalid health: {request.Health}. Must be Green, Yellow, or Red");
+            }
+        }
+
+        // Map request to command
+        var command = new UpdateProjectCommand
+        {
+            Id = id,
+            Code = request.Code,
+            Name = request.Name,
+            Description = request.Description,
+            Status = status,
+            Priority = request.Priority,
+            StartDate = request.StartDate,
+            EndDate = request.EndDate,
+            ActualStartDate = request.ActualStartDate,
+            ActualEndDate = request.ActualEndDate,
+            Budget = request.Budget,
+            Currency = request.Currency,
+            Progress = request.Progress,
+            Health = request.Health,
+            ProjectManagerId = request.ProjectManagerId,
+            SponsorId = request.SponsorId
+        };
 
         var result = await _mediator.Send(command);
         if (result == null)
             return NotFound();
 
         return Ok(result);
+    }
+
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteProject(string id)
+    {
+        var command = new DeleteProjectCommand(id);
+        var result = await _mediator.Send(command);
+        
+        if (!result)
+            return NotFound();
+
+        return NoContent();
     }
 
     [HttpPost("{id}/baseline")]

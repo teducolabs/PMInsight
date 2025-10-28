@@ -6,7 +6,8 @@ using PMInsight.Domain.Entities;
 
 namespace PMInsight.Application.Projects.Queries.Handlers;
 
-public class GetProjectsQueryHandler : IRequestHandler<GetProjectsQuery, PaginatedResponse<ProjectDto>>
+public class GetProjectsQueryHandler
+    : IRequestHandler<GetProjectsQuery, PaginatedResponse<ProjectDto>>
 {
     private readonly IRepository<Project> _projectRepository;
     private readonly IRepository<User> _userRepository;
@@ -15,21 +16,26 @@ public class GetProjectsQueryHandler : IRequestHandler<GetProjectsQuery, Paginat
     public GetProjectsQueryHandler(
         IRepository<Project> projectRepository,
         IRepository<User> userRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService
+    )
     {
         _projectRepository = projectRepository;
         _userRepository = userRepository;
         _currentUserService = currentUserService;
     }
 
-    public async Task<PaginatedResponse<ProjectDto>> Handle(GetProjectsQuery request, CancellationToken cancellationToken)
+    public async Task<PaginatedResponse<ProjectDto>> Handle(
+        GetProjectsQuery request,
+        CancellationToken cancellationToken
+    )
     {
         // For now, get all projects and filter in memory
         // TODO: Implement proper filtering at repository level
         var allProjects = await _projectRepository.GetAllAsync(cancellationToken);
-        
-        var filtered = allProjects
-            .Where(p => p.OrganizationId == _currentUserService.OrganizationId);
+
+        var filtered = allProjects.Where(p =>
+            p.OrganizationId == _currentUserService.OrganizationId
+        );
 
         if (request.Status.HasValue)
         {
@@ -44,9 +50,9 @@ public class GetProjectsQueryHandler : IRequestHandler<GetProjectsQuery, Paginat
         if (!string.IsNullOrEmpty(request.SearchText))
         {
             var search = request.SearchText.ToLower();
-            filtered = filtered.Where(p => 
-                p.Name.ToLower().Contains(search) || 
-                p.Code.ToLower().Contains(search));
+            filtered = filtered.Where(p =>
+                p.Name.ToLower().Contains(search) || p.Code.ToLower().Contains(search)
+            );
         }
 
         if (request.FromDate.HasValue)
@@ -69,27 +75,33 @@ public class GetProjectsQueryHandler : IRequestHandler<GetProjectsQuery, Paginat
             .ToDictionary(u => u.Id, u => u.Name);
 
         // Map to DTOs
-        var dtos = projectsList.Select(p => new ProjectDto
-        {
-            Id = p.Id,
-            Code = p.Code,
-            Name = p.Name,
-            Description = p.Description ?? string.Empty,
-            Status = p.Status.ToString(),
-            StartDate = p.StartDate ?? DateTime.UtcNow,
-            EndDate = p.EndDate ?? DateTime.UtcNow,
-            Budget = p.Budget,
-            OwnerId = p.OwnerId,
-            OwnerName = userDict.GetValueOrDefault(p.OwnerId, "Unknown"),
-            CreatedAt = p.CreatedAt,
-            UpdatedAt = p.UpdatedAt
-        }).ToList();
+        var dtos = projectsList
+            .Select(p => new ProjectDto
+            {
+                Id = p.Id,
+                Code = p.Code,
+                Name = p.Name,
+                Description = p.Description ?? string.Empty,
+                OrganizationId = p.OrganizationId,
+                Priority = p.Priority,
+                Health = p.Health,
+                Currency = p.Currency,
+                Status = p.Status.ToString(),
+                StartDate = p.StartDate ?? DateTime.UtcNow,
+                EndDate = p.EndDate ?? DateTime.UtcNow,
+                Budget = p.Budget,
+                ProjectManagerId = p.OwnerId,
+                ProjectManagerName = userDict.GetValueOrDefault(p.OwnerId, "Unknown"),
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+            })
+            .ToList();
 
         return new PaginatedResponse<ProjectDto>
         {
             Items = dtos,
             NextCursor = null,
-            Total = dtos.Count
+            Total = dtos.Count,
         };
     }
 }

@@ -16,17 +16,21 @@ public class GetProjectByIdQueryHandler : IRequestHandler<GetProjectByIdQuery, P
     public GetProjectByIdQueryHandler(
         IRepository<Project> projectRepository,
         IRepository<User> userRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService
+    )
     {
         _projectRepository = projectRepository;
         _userRepository = userRepository;
         _currentUserService = currentUserService;
     }
 
-    public async Task<ProjectDto> Handle(GetProjectByIdQuery request, CancellationToken cancellationToken)
+    public async Task<ProjectDto> Handle(
+        GetProjectByIdQuery request,
+        CancellationToken cancellationToken
+    )
     {
         var project = await _projectRepository.GetByIdAsync(request.Id, cancellationToken);
-        
+
         if (project == null)
         {
             throw new NotFoundException($"Project {request.Id} not found");
@@ -34,7 +38,9 @@ public class GetProjectByIdQueryHandler : IRequestHandler<GetProjectByIdQuery, P
 
         if (project.OrganizationId != _currentUserService.OrganizationId)
         {
-            throw new UnauthorizedAccessException("You don't have permission to access this project");
+            throw new UnauthorizedAccessException(
+                "You don't have permission to access this project"
+            );
         }
 
         // Get owner info
@@ -49,11 +55,15 @@ public class GetProjectByIdQueryHandler : IRequestHandler<GetProjectByIdQuery, P
             Status = project.Status.ToString(),
             StartDate = project.StartDate ?? DateTime.UtcNow,
             EndDate = project.EndDate ?? DateTime.UtcNow,
+            OrganizationId = project.OrganizationId,
+            Priority = project.Priority,
+            Health = project.Health,
+            Currency = project.Currency,
             Budget = project.Budget,
-            OwnerId = project.OwnerId,
-            OwnerName = owner?.Name ?? "Unknown",
+            ProjectManagerId = project.OwnerId,
+            ProjectManagerName = owner?.Name ?? "Unknown",
             CreatedAt = project.CreatedAt,
-            UpdatedAt = project.UpdatedAt
+            UpdatedAt = project.UpdatedAt,
         };
     }
 }

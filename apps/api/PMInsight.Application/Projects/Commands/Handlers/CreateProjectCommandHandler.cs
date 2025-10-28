@@ -16,26 +16,37 @@ public class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand,
     public CreateProjectCommandHandler(
         IRepository<Project> projectRepository,
         IRepository<User> userRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService
+    )
     {
         _projectRepository = projectRepository;
         _userRepository = userRepository;
         _currentUserService = currentUserService;
     }
 
-    public async Task<ProjectDto> Handle(CreateProjectCommand request, CancellationToken cancellationToken)
+    public async Task<ProjectDto> Handle(
+        CreateProjectCommand request,
+        CancellationToken cancellationToken
+    )
     {
         // Get project manager
-        var projectManager = await _userRepository.GetByIdAsync(request.ProjectManagerId, cancellationToken);
+        var projectManager = await _userRepository.GetByIdAsync(
+            request.ProjectManagerId,
+            cancellationToken
+        );
         if (projectManager == null)
         {
-            throw new ArgumentException($"Project manager with ID {request.ProjectManagerId} not found");
+            throw new ArgumentException(
+                $"Project manager with ID {request.ProjectManagerId} not found"
+            );
         }
 
         // Create project entity
         var project = new Project
         {
-            OrganizationId = _currentUserService.OrganizationId ?? throw new InvalidOperationException("Organization ID is required"),
+            OrganizationId =
+                _currentUserService.OrganizationId
+                ?? throw new InvalidOperationException("Organization ID is required"),
             Code = request.Code,
             Name = request.Name,
             Description = request.Description,
@@ -60,15 +71,19 @@ public class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand,
             Id = project.Id,
             Code = project.Code,
             Name = project.Name,
+            OrganizationId = project.OrganizationId,
+            Priority = project.Priority,
+            Currency = project.Currency,
+            Health = project.Health,
             Description = project.Description ?? string.Empty,
             Status = project.Status.ToString(),
             StartDate = project.StartDate ?? DateTime.UtcNow,
             EndDate = project.EndDate ?? DateTime.UtcNow.AddDays(90),
             Budget = project.Budget,
-            OwnerId = project.OwnerId,
-            OwnerName = projectManager.Name,
+            ProjectManagerId = project.OwnerId,
+            ProjectManagerName = projectManager.Name,
             CreatedAt = project.CreatedAt,
-            UpdatedAt = project.UpdatedAt
+            UpdatedAt = project.UpdatedAt,
         };
     }
 }

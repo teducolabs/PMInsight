@@ -37,30 +37,84 @@ public class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectCommand,
             throw new UnauthorizedAccessException("You don't have permission to update this project");
         }
 
-        // Update fields
-        project.Name = request.Name;
-        project.Description = request.Description;
-        project.StartDate = request.StartDate;
-        project.EndDate = request.EndDate;
-        project.Budget = request.Budget;
+        // Update fields (only update non-null values)
+        if (request.Code != null)
+            project.Code = request.Code;
+        
+        if (request.Name != null)
+            project.Name = request.Name;
+        
+        if (request.Description != null)
+            project.Description = request.Description;
+        
+        if (request.Status.HasValue)
+            project.Status = request.Status.Value;
+        
+        if (request.Priority != null)
+            project.Priority = request.Priority;
+        
+        if (request.StartDate.HasValue)
+            project.StartDate = request.StartDate.Value;
+        
+        if (request.EndDate.HasValue)
+            project.EndDate = request.EndDate.Value;
+        
+        if (request.ActualStartDate.HasValue)
+            project.ActualStartDate = request.ActualStartDate.Value;
+        
+        if (request.ActualEndDate.HasValue)
+            project.ActualEndDate = request.ActualEndDate.Value;
+        
+        if (request.Budget.HasValue)
+            project.Budget = request.Budget.Value;
+        
+        if (request.Currency != null)
+            project.Currency = request.Currency;
+        
+        if (request.Progress.HasValue)
+            project.Progress = request.Progress.Value;
+        
+        if (request.Health != null)
+            project.Health = request.Health;
+        
+        if (request.ProjectManagerId != null)
+            project.OwnerId = request.ProjectManagerId; // OwnerId is ProjectManager
+        
+        if (request.SponsorId != null)
+            project.SponsorId = request.SponsorId;
 
         await _projectRepository.UpdateAsync(project.Id, project, cancellationToken);
 
-        // Get owner info
-        var owner = await _userRepository.GetByIdAsync(project.OwnerId, cancellationToken);
+        // Get manager/sponsor info
+        var manager = await _userRepository.GetByIdAsync(project.OwnerId, cancellationToken);
+        User? sponsor = null;
+        if (project.SponsorId != null)
+        {
+            sponsor = await _userRepository.GetByIdAsync(project.SponsorId, cancellationToken);
+        }
 
         return new ProjectDto
         {
             Id = project.Id,
+            OrganizationId = project.OrganizationId,
             Code = project.Code,
             Name = project.Name,
-            Description = project.Description ?? string.Empty,
+            Description = project.Description,
             Status = project.Status.ToString(),
-            StartDate = project.StartDate ?? DateTime.UtcNow,
-            EndDate = project.EndDate ?? DateTime.UtcNow,
+            Priority = project.Priority,
+            StartDate = project.StartDate,
+            EndDate = project.EndDate,
+            ActualStartDate = project.ActualStartDate,
+            ActualEndDate = project.ActualEndDate,
             Budget = project.Budget,
-            OwnerId = project.OwnerId,
-            OwnerName = owner?.Name ?? "Unknown",
+            Currency = project.Currency,
+            Progress = project.Progress,
+            Health = project.Health,
+            ProjectManagerId = project.OwnerId,
+            ProjectManagerName = manager?.Name,
+            SponsorId = project.SponsorId,
+            SponsorName = sponsor?.Name,
+            TemplateId = project.TemplateId,
             CreatedAt = project.CreatedAt,
             UpdatedAt = project.UpdatedAt
         };
