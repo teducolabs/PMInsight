@@ -14,6 +14,8 @@ import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
 import { EditDependenciesDialog } from '@/components/schedule/EditDependenciesDialog';
+import { CreateActivityDialog } from '@/components/schedule/CreateActivityDialog';
+import { UpdateActivityDialog } from '@/components/schedule/UpdateActivityDialog';
 import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
 import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
 import { activityApi } from '@/lib/api/activity';
@@ -75,6 +77,11 @@ export function WBSPage() {
   
   // Dependencies edit state
   const [editingDependencies, setEditingDependencies] = useState<Activity | null>(null);
+  
+  // Activity edit state
+  const [creatingActivity, setCreatingActivity] = useState(false);
+  const [wbsNodeForActivity, setWbsNodeForActivity] = useState<WBSNode | null>(null);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   
   // WBS Node edit state
   const [creatingWBSNode, setCreatingWBSNode] = useState(false);
@@ -810,7 +817,23 @@ export function WBSPage() {
                   title="Thêm WBS node con"
                   className="h-7 px-2"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3 h-3 mr-1" />
+                  WBS
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setWbsNodeForActivity(node);
+                    setCreatingActivity(true);
+                  }}
+                  title="Thêm Activity"
+                  className="h-7 px-2"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Act
                 </Button>
               </div>
             </div>
@@ -862,7 +885,7 @@ export function WBSPage() {
           {/* Tree Column */}
           {treeColumn?.visible && (
             <div
-              className="flex items-center gap-2 py-2 px-4 border-r"
+              className="flex items-center gap-2 py-2 px-4 border-r group"
               style={{ 
                 width: treeColumn.width,
                 paddingLeft: `${depth * 24 + 16}px`,
@@ -877,6 +900,20 @@ export function WBSPage() {
                 </span>
                 <span className="text-sm truncate text-gray-700">{activity.name}</span>
               </div>
+              
+              {/* Edit button - show on hover */}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingActivity(activity);
+                }}
+                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Chỉnh sửa Activity"
+              >
+                <Edit2 className="w-3 h-3" />
+              </Button>
             </div>
           )}
           
@@ -1005,6 +1042,32 @@ export function WBSPage() {
           onOpenChange={(open) => !open && setEditingWBSNode(null)}
           node={editingWBSNode}
           onSave={handleUpdateWBSNode}
+        />
+      )}
+      
+      {/* Create Activity Dialog */}
+      {currentProjectId && (
+        <CreateActivityDialog
+          projectId={currentProjectId}
+          open={creatingActivity}
+          onOpenChange={(open) => {
+            setCreatingActivity(open);
+            if (!open) setWbsNodeForActivity(null);
+          }}
+          wbsNodeId={wbsNodeForActivity?.id}
+          wbsNodeName={wbsNodeForActivity ? `${wbsNodeForActivity.code} - ${wbsNodeForActivity.name}` : undefined}
+        />
+      )}
+      
+      {/* Edit Activity Dialog */}
+      {currentProjectId && editingActivity && (
+        <UpdateActivityDialog
+          projectId={currentProjectId}
+          activity={editingActivity}
+          open={!!editingActivity}
+          onOpenChange={(open) => {
+            if (!open) setEditingActivity(null);
+          }}
         />
       )}
       

@@ -26,18 +26,23 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { CreateActivityDto, ActivityStatus } from '@/types/activity';
+import type { CreateActivityDto } from '@/types/activity';
+import { ActivityStatus } from '@/types/activity';
 
 interface CreateActivityDialogProps {
   projectId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  wbsNodeId?: string;
+  wbsNodeName?: string;
 }
 
 export function CreateActivityDialog({
   projectId,
   open,
   onOpenChange,
+  wbsNodeId,
+  wbsNodeName,
 }: CreateActivityDialogProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<Partial<CreateActivityDto>>({
@@ -45,7 +50,7 @@ export function CreateActivityDialog({
     code: '',
     description: '',
     durationDays: 5,
-    status: 'NotStarted',
+    status: ActivityStatus.NotStarted,
     percentComplete: 0,
   });
   const [startDate, setStartDate] = useState<Date>();
@@ -69,7 +74,7 @@ export function CreateActivityDialog({
       code: '',
       description: '',
       durationDays: 5,
-      status: 'NotStarted',
+      status: ActivityStatus.NotStarted,
       percentComplete: 0,
     });
     setStartDate(undefined);
@@ -87,6 +92,7 @@ export function CreateActivityDialog({
       name: formData.name,
       code: formData.code,
       description: formData.description,
+      wbsNodeId: wbsNodeId,
       plannedStartDate: startDate?.toISOString(),
       durationDays: formData.durationDays || 5,
       status: (formData.status as ActivityStatus) || 'NotStarted',
@@ -102,7 +108,11 @@ export function CreateActivityDialog({
         <DialogHeader>
           <DialogTitle>Tạo Activity Mới</DialogTitle>
           <DialogDescription>
-            Thêm công việc mới vào lịch trình dự án
+            {wbsNodeName ? (
+              <>Thêm công việc mới vào <span className="font-semibold text-blue-600">{wbsNodeName}</span></>
+            ) : (
+              <>Thêm công việc mới vào lịch trình dự án</>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -196,8 +206,8 @@ export function CreateActivityDialog({
             <div className="space-y-2">
               <Label htmlFor="status">Trạng thái</Label>
               <Select
-                value={formData.status || 'NotStarted'}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
+                value={formData.status || ActivityStatus.NotStarted}
+                onValueChange={(value) => setFormData({ ...formData, status: value as ActivityStatus })}
               >
                 <SelectTrigger>
                   <SelectValue />
