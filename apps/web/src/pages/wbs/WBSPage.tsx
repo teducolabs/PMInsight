@@ -1,9 +1,9 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useProject } from '@/lib/context/ProjectContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp, Edit2, Link } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, FolderTree, ListChecks, Calendar, TrendingUp, Edit2, Link, Loader2 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { Activity, ActivityDependency } from '@/types/activity';
@@ -14,17 +14,14 @@ import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
 import { EditDependenciesDialog } from '@/components/schedule/EditDependenciesDialog';
-import { generateMockActivities } from './mockWBSData';
+import { activityApi } from '@/lib/api/activity';
+import { wbsApi, type WBSNode as ApiWBSNode } from '@/lib/api/wbs';
+import { projectApi } from '@/lib/api/project';
+import type { Project } from '@/types/project';
+import { ProjectStatus } from '@/types/project';
 
-interface WBSNode {
-  id: string;
-  code: string;
-  name: string;
-  level: number;
-  parentId?: string;
-  children?: WBSNode[];
-  activityIds?: string[]; // IDs of activities belonging to this node
-}
+// Using API type for WBS nodes
+type WBSNode = ApiWBSNode;
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -34,7 +31,7 @@ const SIDEBAR_WIDTH = 400;
 
 export function WBSPage() {
   const { currentProjectId } = useProject();
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['1', '1.1', '1.2', '1.2.1', '1.2.2', '1.2.3', '1.3', '1.3.1', '1.3.2', '1.3.3', '1.4', '1.5']));
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [viewMode] = useState<ViewMode>('week');
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
@@ -56,168 +53,96 @@ export function WBSPage() {
   // Dependencies edit state
   const [editingDependencies, setEditingDependencies] = useState<Activity | null>(null);
   
-  // Mock activities - use state to allow updates
-  const [mockActivities, setMockActivities] = useState<Activity[]>(() => 
-    generateMockActivities(currentProjectId || 'mock-project')
-  );
+  // Data loading state
+  const [loading, setLoading] = useState(true);
+  const [project, setProject] = useState<Project | null>(null);
+  const [wbsNodes, setWbsNodes] = useState<WBSNode[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  
+  // Load data from API
+  useEffect(() => {
+    if (!currentProjectId) return;
+    
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load project, WBS, and activities in parallel
+        const [projectData, wbsData, activitiesData] = await Promise.all([
+          projectApi.getById(currentProjectId),
+          wbsApi.getByProjectId(currentProjectId),
+          activityApi.getAll(currentProjectId),
+        ]);
+        
+        setProject(projectData);
+        setWbsNodes(wbsData?.tree || []);
+        setActivities(activitiesData);
+        
+        // Auto-expand first level
+        if (wbsData?.tree) {
+          const firstLevelIds = wbsData.tree.map(n => n.id);
+          setExpandedNodes(new Set(firstLevelIds));
+        }
+      } catch (error) {
+        console.error('Failed to load WBS data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [currentProjectId]);
   
   // Calculate project info from actual activities
   const projectInfo = useMemo(() => {
-    if (mockActivities.length === 0) {
+    if (!project) {
       return {
-        name: 'Dự án Website PMInsight - Hệ thống quản lý dự án',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-03-31'),
-        currentPhase: 'Phân tích & Thiết kế',
-        progress: 35,
+        name: 'Đang tải...',
+        startDate: new Date(),
+        endDate: new Date(),
+        currentPhase: '-',
+        progress: 0,
+      };
+    }
+    
+    if (activities.length === 0) {
+      return {
+        name: project.name,
+        startDate: project.startDate ? new Date(project.startDate) : new Date(),
+        endDate: project.endDate ? new Date(project.endDate) : new Date(),
+        currentPhase: project.status || '-',
+        progress: 0,
       };
     }
     
     // Calculate actual start/end dates from activities
-    const dates = mockActivities
+    const dates = activities
       .filter(a => a.plannedStartDate && a.plannedEndDate)
       .flatMap(a => [new Date(a.plannedStartDate!), new Date(a.plannedEndDate!)]);
     
-    const actualStartDate = new Date(Math.min(...dates.map(d => d.getTime())));
-    const actualEndDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    const actualStartDate = dates.length > 0 
+      ? new Date(Math.min(...dates.map(d => d.getTime())))
+      : project.startDate ? new Date(project.startDate) : new Date();
+      
+    const actualEndDate = dates.length > 0
+      ? new Date(Math.max(...dates.map(d => d.getTime())))
+      : project.endDate ? new Date(project.endDate) : new Date();
     
     // Calculate progress from activities
-    const totalProgress = mockActivities.reduce((sum, a) => sum + a.percentComplete, 0);
-    const avgProgress = Math.round(totalProgress / mockActivities.length);
+    const totalProgress = activities.reduce((sum, a) => sum + a.percentComplete, 0);
+    const avgProgress = activities.length > 0 ? Math.round(totalProgress / activities.length) : 0;
     
-    // Determine current phase based on WBS progress
-    let currentPhase = 'Khởi động';
-    if (avgProgress > 60) currentPhase = 'Testing & QA';
-    else if (avgProgress > 40) currentPhase = 'Phát triển';
-    else if (avgProgress > 20) currentPhase = 'Phân tích & Thiết kế';
+    // Determine current phase based on project status
+    const currentPhase = project.status || ProjectStatus.Planning;
     
     return {
-      name: 'Dự án Website PMInsight - Hệ thống quản lý dự án',
+      name: project.name,
       startDate: actualStartDate,
       endDate: actualEndDate,
       currentPhase,
       progress: avgProgress,
     };
-  }, [mockActivities]);
-  
-  // Mock WBS Structure - More comprehensive data
-  const wbsNodes: WBSNode[] = [
-    {
-      id: '1',
-      code: '1.0',
-      name: 'Dự án Website PMInsight',
-      level: 1,
-      children: [
-        {
-          id: '1.1',
-          code: '1.1',
-          name: 'Khởi động Dự án',
-          level: 2,
-          parentId: '1',
-          activityIds: ['a1', 'a2', 'a3'],
-        },
-        {
-          id: '1.2',
-          code: '1.2',
-          name: 'Phân tích & Thiết kế',
-          level: 2,
-          parentId: '1',
-          children: [
-            {
-              id: '1.2.1',
-              code: '1.2.1',
-              name: 'Phân tích nghiệp vụ',
-              level: 3,
-              parentId: '1.2',
-              activityIds: ['a4', 'a5', 'a6'],
-            },
-            {
-              id: '1.2.2',
-              code: '1.2.2',
-              name: 'Thiết kế hệ thống',
-              level: 3,
-              parentId: '1.2',
-              activityIds: ['a7', 'a8', 'a9'],
-            },
-            {
-              id: '1.2.3',
-              code: '1.2.3',
-              name: 'Thiết kế giao diện',
-              level: 3,
-              parentId: '1.2',
-              activityIds: ['a10', 'a11'],
-            },
-          ],
-        },
-        {
-          id: '1.3',
-          code: '1.3',
-          name: 'Phát triển',
-          level: 2,
-          parentId: '1',
-          children: [
-            {
-              id: '1.3.1',
-              code: '1.3.1',
-              name: 'Frontend Development',
-              level: 3,
-              parentId: '1.3',
-              activityIds: ['a12', 'a13', 'a14', 'a15'],
-            },
-            {
-              id: '1.3.2',
-              code: '1.3.2',
-              name: 'Backend Development',
-              level: 3,
-              parentId: '1.3',
-              activityIds: ['a16', 'a17', 'a18', 'a19'],
-            },
-            {
-              id: '1.3.3',
-              code: '1.3.3',
-              name: 'Database Implementation',
-              level: 3,
-              parentId: '1.3',
-              activityIds: ['a20', 'a21'],
-            },
-          ],
-        },
-        {
-          id: '1.4',
-          code: '1.4',
-          name: 'Testing & QA',
-          level: 2,
-          parentId: '1',
-          activityIds: ['a22', 'a23', 'a24', 'a25'],
-        },
-        {
-          id: '1.5',
-          code: '1.5',
-          name: 'Triển khai & Bàn giao',
-          level: 2,
-          parentId: '1',
-          activityIds: ['a26', 'a27', 'a28'],
-        },
-      ],
-    },
-  ];
-
-  // Redirect to projects if no project selected
-  if (!currentProjectId) {
-    return <Navigate to="/projects" replace />;
-  }
-
-  const toggleNode = (nodeId: string) => {
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(nodeId)) {
-        next.delete(nodeId);
-      } else {
-        next.add(nodeId);
-      }
-      return next;
-    });
-  };
+  }, [activities, project]);
 
   // Build flat list of visible rows (WBS nodes + activities)
   type RowItem = 
@@ -233,18 +158,14 @@ export function WBSPage() {
       const isExpanded = expandedNodes.has(node.id);
       
       if (isExpanded) {
-        // Add activities of this node
-        if (node.activityIds) {
-          node.activityIds.forEach(actId => {
-            const activity = mockActivities.find(a => a.id === actId);
-            if (activity) {
-              rows.push({ type: 'activity', activity, depth: depth + 1 });
-            }
-          });
-        }
+        // Add activities belonging to this WBS node
+        const nodeActivities = activities.filter(a => a.wbsNodeId === node.id);
+        nodeActivities.forEach(activity => {
+          rows.push({ type: 'activity', activity, depth: depth + 1 });
+        });
         
-        // Add child nodes
-        if (node.children) {
+        // Add child nodes recursively
+        if (node.children && node.children.length > 0) {
           node.children.forEach(child => processNode(child, depth + 1));
         }
       }
@@ -252,32 +173,29 @@ export function WBSPage() {
     
     wbsNodes.forEach(node => processNode(node, 0));
     return rows;
-  }, [expandedNodes, mockActivities, wbsNodes]);
+  }, [expandedNodes, activities, wbsNodes]);
 
   // Calculate WBS node date range (roll-up from all child activities)
   const getWBSNodeDateRange = (node: WBSNode): { startDate: Date; endDate: Date } | null => {
-    const allActivityIds: string[] = [];
+    const allActivities: Activity[] = [];
     
-    const collectActivityIds = (n: WBSNode) => {
-      if (n.activityIds) {
-        allActivityIds.push(...n.activityIds);
-      }
-      if (n.children) {
-        n.children.forEach(collectActivityIds);
+    const collectActivities = (n: WBSNode) => {
+      // Add activities belonging to this node
+      const nodeActivities = activities.filter(a => a.wbsNodeId === n.id);
+      allActivities.push(...nodeActivities);
+      
+      // Recursively collect from children
+      if (n.children && n.children.length > 0) {
+        n.children.forEach(collectActivities);
       }
     };
     
-    collectActivityIds(node);
+    collectActivities(node);
     
-    if (allActivityIds.length === 0) return null;
+    const validActivities = allActivities.filter(a => a.plannedStartDate && a.plannedEndDate);
+    if (validActivities.length === 0) return null;
     
-    const activities = allActivityIds
-      .map(id => mockActivities.find(a => a.id === id))
-      .filter((a): a is Activity => a !== undefined && !!a.plannedStartDate && !!a.plannedEndDate);
-    
-    if (activities.length === 0) return null;
-    
-    const dates = activities.flatMap(a => [
+    const dates = validActivities.flatMap(a => [
       new Date(a.plannedStartDate!),
       new Date(a.plannedEndDate!)
     ]);
@@ -290,8 +208,28 @@ export function WBSPage() {
 
   // Calculate Gantt date range
   const { startDate, columns, columnWidth } = useMemo(() => {
-    const dates = mockActivities
+    if (activities.length === 0) {
+      // Default range if no activities
+      const now = new Date();
+      return {
+        startDate: now,
+        columns: [now],
+        columnWidth: 60,
+      };
+    }
+    
+    const dates = activities
+      .filter(a => a.plannedStartDate && a.plannedEndDate)
       .flatMap(a => [new Date(a.plannedStartDate!), new Date(a.plannedEndDate!)]);
+    
+    if (dates.length === 0) {
+      const now = new Date();
+      return {
+        startDate: now,
+        columns: [now],
+        columnWidth: 60,
+      };
+    }
     
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
@@ -313,11 +251,10 @@ export function WBSPage() {
     
     return {
       startDate: start,
-      endDate: end,
       columns: cols,
       columnWidth: width,
     };
-  }, [viewMode]);
+  }, [viewMode, activities]);
 
   const totalWidth = columns.length * columnWidth;
 
@@ -353,29 +290,38 @@ export function WBSPage() {
 
   // Calculate progress for WBS node
   const getWBSProgress = (node: WBSNode): number => {
-    const allActivityIds: string[] = [];
+    const allActivities: Activity[] = [];
     
-    const collectActivityIds = (n: WBSNode) => {
-      if (n.activityIds) {
-        allActivityIds.push(...n.activityIds);
-      }
-      if (n.children) {
-        n.children.forEach(collectActivityIds);
+    const collectActivities = (n: WBSNode) => {
+      // Add activities belonging to this node
+      const nodeActivities = activities.filter(a => a.wbsNodeId === n.id);
+      allActivities.push(...nodeActivities);
+      
+      // Recursively collect from children
+      if (n.children && n.children.length > 0) {
+        n.children.forEach(collectActivities);
       }
     };
     
-    collectActivityIds(node);
+    collectActivities(node);
     
-    if (allActivityIds.length === 0) return 0;
+    if (allActivities.length === 0) return 0;
     
-    const activities = allActivityIds
-      .map(id => mockActivities.find(a => a.id === id))
-      .filter((a): a is Activity => a !== undefined);
-    
-    if (activities.length === 0) return 0;
-    
-    const totalProgress = activities.reduce((sum, a) => sum + a.percentComplete, 0);
-    return Math.round(totalProgress / activities.length);
+    const totalProgress = allActivities.reduce((sum, a) => sum + a.percentComplete, 0);
+    return Math.round(totalProgress / allActivities.length);
+  };
+
+  // Toggle WBS node expand/collapse
+  const toggleNode = (nodeId: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
   };
 
   // Drag handlers
@@ -383,7 +329,7 @@ export function WBSPage() {
     e.stopPropagation();
     e.preventDefault();
     
-    const activity = mockActivities.find(a => a.id === activityId);
+    const activity = activities.find(a => a.id === activityId);
     if (!activity) return;
     
     console.log(`🖱️ MouseDown: ${mode} on ${activity.name}`);
@@ -406,7 +352,7 @@ export function WBSPage() {
     const deltaX = e.clientX - dragStartX;
     const daysDelta = Math.round((deltaX / columnWidth) * 7); // Convert pixels to days
     
-    const activity = mockActivities.find(a => a.id === draggingTask);
+    const activity = activities.find(a => a.id === draggingTask);
     if (!activity) return;
     
     let newStartDate = new Date(activity.plannedStartDate!);
@@ -434,14 +380,16 @@ export function WBSPage() {
     console.log(`Drag ${dragMode}: ${draggingTask}, deltaX: ${deltaX}px, days: ${daysDelta}`);
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = async () => {
     if (draggingTask && dragMode && dragInfo && dragInfo.newStartDate && dragInfo.newEndDate) {
       console.log('✅ Drag completed for', draggingTask);
       
       const newDuration = Math.max(1, Math.ceil((dragInfo.newEndDate.getTime() - dragInfo.newStartDate.getTime()) / (1000 * 60 * 60 * 24)));
       
+      const updatedActivities: Activity[] = [];
+      
       // Update activity and cascade to successors
-      setMockActivities(prev => {
+      setActivities(prev => {
         const updated = [...prev];
         
         // Update dragged activity
@@ -454,6 +402,8 @@ export function WBSPage() {
           plannedEndDate: dragInfo.newEndDate!.toISOString(),
           durationDays: newDuration,
         };
+        
+        updatedActivities.push(updated[draggedIndex]);
         
         // Cascade update to successors
         const cascadeSuccessors = (activityId: string, visited = new Set<string>()) => {
@@ -503,6 +453,8 @@ export function WBSPage() {
                     plannedEndDate: newSuccEnd.toISOString(),
                   };
                   
+                  updatedActivities.push(updated[idx]);
+                  
                   console.log(`🔗 Cascaded: ${successor.code} → ${format(newSuccStart, 'dd/MM/yyyy', { locale: vi })}`);
                   
                   // Recursively cascade
@@ -518,15 +470,24 @@ export function WBSPage() {
         return updated;
       });
       
-      console.log('📅 Updated activity:', {
-        id: draggingTask,
-        newStart: dragInfo.newStartDate.toISOString(),
-        newEnd: dragInfo.newEndDate.toISOString(),
-        duration: newDuration,
-      });
-      
-      // TODO: Save changes via API
-      // await activityApi.update({ ...activity, plannedStartDate: newStartDate, plannedEndDate: newEndDate });
+      // Save all updated activities to backend
+      try {
+        if (!currentProjectId) return;
+        
+        await Promise.all(
+          updatedActivities.map(activity =>
+            activityApi.update(currentProjectId, activity.id, {
+              plannedStartDate: activity.plannedStartDate,
+              plannedEndDate: activity.plannedEndDate,
+              durationDays: activity.durationDays,
+            })
+          )
+        );
+        console.log('✅ Saved drag changes to backend:', updatedActivities.length, 'activities');
+      } catch (error) {
+        console.error('❌ Failed to save drag changes:', error);
+        // TODO: Show error toast and revert changes
+      }
     }
     
     setDraggingTask(null);
@@ -535,12 +496,61 @@ export function WBSPage() {
   };
 
   // Handle dependencies save
-  const handleSaveDependencies = (activityId: string, dependencies: ActivityDependency[]) => {
-    setMockActivities(prev => prev.map(a =>
-      a.id === activityId ? { ...a, predecessors: dependencies } : a
-    ));
-    console.log('✅ Updated predecessors for', activityId, dependencies);
-    // TODO: Save to API
+  const handleSaveDependencies = async (activityId: string, dependencies: ActivityDependency[]) => {
+    if (!currentProjectId) return;
+    
+    try {
+      const activity = activities.find(a => a.id === activityId);
+      if (!activity) return;
+      
+      // Get current predecessors
+      const currentPredecessors = activity.predecessors || [];
+      
+      // Find dependencies to add and remove
+      const toAdd = dependencies.filter(
+        newDep => !currentPredecessors.some(curr => curr.activityId === newDep.activityId)
+      );
+      const toRemove = currentPredecessors.filter(
+        currDep => !dependencies.some(newDep => newDep.activityId === currDep.activityId)
+      );
+      const toUpdate = dependencies.filter(newDep => {
+        const curr = currentPredecessors.find(c => c.activityId === newDep.activityId);
+        return curr && (curr.type !== newDep.type || curr.lagDays !== newDep.lagDays);
+      });
+      
+      // Update local state immediately for UI responsiveness
+      setActivities(prev => prev.map(a =>
+        a.id === activityId ? { ...a, predecessors: dependencies } : a
+      ));
+      
+      // Sync with backend
+      await Promise.all([
+        ...toRemove.map(dep =>
+          activityApi.removeDependency(currentProjectId, activityId, dep.activityId)
+        ),
+        ...toAdd.map(dep =>
+          activityApi.addDependency(currentProjectId, activityId, {
+            predecessorId: dep.activityId,
+            type: dep.type,
+            lagDays: dep.lagDays,
+          })
+        ),
+        // For updates, remove and re-add
+        ...toUpdate.map(async (dep) => {
+          await activityApi.removeDependency(currentProjectId, activityId, dep.activityId);
+          await activityApi.addDependency(currentProjectId, activityId, {
+            predecessorId: dep.activityId,
+            type: dep.type,
+            lagDays: dep.lagDays,
+          });
+        }),
+      ]);
+      
+      console.log('✅ Updated predecessors for', activityId, dependencies);
+    } catch (error) {
+      console.error('❌ Failed to save dependencies:', error);
+      // TODO: Show error toast and revert changes
+    }
   };
 
   const renderRow = (row: RowItem) => {
@@ -548,7 +558,7 @@ export function WBSPage() {
       const { node, depth } = row;
       const isExpanded = expandedNodes.has(node.id);
       const hasChildren = node.children && node.children.length > 0;
-      const hasActivities = node.activityIds && node.activityIds.length > 0;
+      const hasActivities = activities.some(a => a.wbsNodeId === node.id);
 
       return (
         <div
@@ -628,14 +638,23 @@ export function WBSPage() {
                   max="100"
                   value={progressValue}
                   onChange={(e) => setProgressValue(e.target.value)}
-                  onKeyDown={(e) => {
+                  onKeyDown={async (e) => {
                     if (e.key === 'Enter') {
                       const newProgress = Math.max(0, Math.min(100, parseInt(progressValue) || 0));
-                      setMockActivities(prev => prev.map(a =>
+                      setActivities(prev => prev.map(a =>
                         a.id === activity.id ? { ...a, percentComplete: newProgress } : a
                       ));
                       setEditingProgress(null);
                       console.log('✅ Updated progress:', activity.id, newProgress + '%');
+                      
+                      // Save to backend
+                      if (currentProjectId) {
+                        try {
+                          await activityApi.update(currentProjectId, activity.id, { percentComplete: newProgress });
+                        } catch (error) {
+                          console.error('❌ Failed to save progress:', error);
+                        }
+                      }
                     } else if (e.key === 'Escape') {
                       setEditingProgress(null);
                     }
@@ -648,13 +667,22 @@ export function WBSPage() {
                   size="sm"
                   variant="ghost"
                   className="h-7 px-2"
-                  onClick={() => {
+                  onClick={async () => {
                     const newProgress = Math.max(0, Math.min(100, parseInt(progressValue) || 0));
-                    setMockActivities(prev => prev.map(a =>
+                    setActivities(prev => prev.map(a =>
                       a.id === activity.id ? { ...a, percentComplete: newProgress } : a
                     ));
                     setEditingProgress(null);
                     console.log('✅ Updated progress:', activity.id, newProgress + '%');
+                    
+                    // Save to backend
+                    if (currentProjectId) {
+                      try {
+                        await activityApi.update(currentProjectId, activity.id, { percentComplete: newProgress });
+                      } catch (error) {
+                        console.error('❌ Failed to save progress:', error);
+                      }
+                    }
                   }}
                 >
                   ✓
@@ -701,6 +729,23 @@ export function WBSPage() {
     }
   };
 
+  // Redirect to projects if no project selected
+  if (!currentProjectId) {
+    return <Navigate to="/projects" replace />;
+  }
+  
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <span className="ml-3 text-lg">Đang tải dữ liệu WBS & Activities...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Dependencies Edit Dialog */}
@@ -709,7 +754,7 @@ export function WBSPage() {
           open={!!editingDependencies}
           onOpenChange={(open) => !open && setEditingDependencies(null)}
           activity={editingDependencies}
-          allActivities={mockActivities}
+          allActivities={activities}
           onSave={handleSaveDependencies}
         />
       )}
@@ -813,7 +858,7 @@ export function WBSPage() {
         <div>
           <h1 className="text-3xl font-bold">WBS & Lịch trình</h1>
           <p className="text-muted-foreground mt-2">
-            Cấu trúc phân rã công việc với Gantt chart tích hợp - {mockActivities.length} hoạt động
+            Cấu trúc phân rã công việc với Gantt chart tích hợp - {activities.length} hoạt động
           </p>
         </div>
         <div className="flex gap-2">
@@ -902,7 +947,9 @@ export function WBSPage() {
                 if (row.type === 'wbs') {
                   // Show summary bar for collapsed WBS nodes
                   const isExpanded = expandedNodes.has(row.node.id);
-                  if (!isExpanded && (row.node.activityIds || row.node.children)) {
+                  const hasChildren = row.node.children && row.node.children.length > 0;
+                  const hasActivities = activities.some(a => a.wbsNodeId === row.node.id);
+                  if (!isExpanded && (hasActivities || hasChildren)) {
                     const position = getWBSPosition(row.node);
                     if (!position) return null;
                     
@@ -1051,7 +1098,7 @@ export function WBSPage() {
               
               {/* Dependency Arrows */}
               <GanttDependencyArrows
-                activities={mockActivities}
+                activities={activities}
                 getTaskPosition={(activity) => {
                   const position = getTaskPosition(activity);
                   if (!position) return null;
