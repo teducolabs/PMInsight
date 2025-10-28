@@ -28,6 +28,7 @@ import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { CreateActivityDto } from '@/types/activity';
 import { ActivityStatus } from '@/types/activity';
+import { toast } from '@/components/ui/use-toast';
 
 interface CreateActivityDialogProps {
   projectId: string;
@@ -57,14 +58,26 @@ export function CreateActivityDialog({
 
   const createMutation = useMutation({
     mutationFn: (data: CreateActivityDto) => activityApi.create(projectId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activities', projectId] });
-      alert('✅ Đã tạo activity thành công!');
+    onSuccess: async (newActivity) => {
+      // Invalidate and refetch queries to reload data
+      await queryClient.invalidateQueries({ queryKey: ['activities', projectId] });
+      await queryClient.refetchQueries({ queryKey: ['activities', projectId] });
+      
+      toast({
+        variant: "success",
+        title: "✅ Thành công!",
+        description: `Đã tạo activity "${newActivity.name}" thành công.`,
+      });
+      
       onOpenChange(false);
       resetForm();
     },
     onError: (error: any) => {
-      alert('❌ ' + (error.message || 'Không thể tạo activity'));
+      toast({
+        variant: "destructive",
+        title: "❌ Lỗi",
+        description: error.message || 'Không thể tạo activity. Vui lòng thử lại.',
+      });
     },
   });
 
@@ -88,12 +101,21 @@ export function CreateActivityDialog({
       return;
     }
 
+    // Calculate plannedEndDate from startDate + durationDays
+    let plannedEndDate: string | undefined;
+    if (startDate && formData.durationDays) {
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + formData.durationDays);
+      plannedEndDate = endDate.toISOString();
+    }
+
     const createData: CreateActivityDto = {
       name: formData.name,
       code: formData.code,
       description: formData.description,
       wbsNodeId: wbsNodeId,
       plannedStartDate: startDate?.toISOString(),
+      plannedEndDate: plannedEndDate,
       durationDays: formData.durationDays || 5,
       status: (formData.status as ActivityStatus) || 'NotStarted',
       percentComplete: formData.percentComplete || 0,
@@ -200,6 +222,20 @@ export function CreateActivityDialog({
               />
             </div>
           </div>
+
+          {/* Calculated End Date - Preview */}
+          {startDate && formData.durationDays && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-sm text-blue-800">
+                <span className="font-semibold">📅 Ngày kết thúc dự kiến:</span>{' '}
+                {(() => {
+                  const endDate = new Date(startDate);
+                  endDate.setDate(endDate.getDate() + formData.durationDays);
+                  return format(endDate, 'dd/MM/yyyy', { locale: vi });
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* Status & Progress */}
           <div className="grid grid-cols-2 gap-4">

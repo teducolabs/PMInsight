@@ -26,8 +26,10 @@ import { CalendarIcon, Loader2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Activity, UpdateActivityDto, ActivityStatus } from '@/types/activity';
+import type { Activity, UpdateActivityDto } from '@/types/activity';
+import { ActivityStatus } from '@/types/activity';
 import { formatFloat } from '@/lib/utils/activityUtils';
+import { toast } from '@/components/ui/use-toast';
 
 interface UpdateActivityDialogProps {
   projectId: string;
@@ -48,7 +50,7 @@ export function UpdateActivityDialog({
     code: '',
     description: '',
     durationDays: 5,
-    status: 'NotStarted',
+    status: ActivityStatus.NotStarted,
     percentComplete: 0,
   });
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -61,7 +63,7 @@ export function UpdateActivityDialog({
         code: activity.code || '',
         description: activity.description || '',
         durationDays: activity.durationDays || 5,
-        status: activity.status || 'NotStarted',
+        status: activity.status || ActivityStatus.NotStarted,
         percentComplete: activity.percentComplete || 0,
       });
       setStartDate(
@@ -73,25 +75,49 @@ export function UpdateActivityDialog({
   const updateMutation = useMutation({
     mutationFn: (data: UpdateActivityDto) =>
       activityApi.update(projectId, activity!.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activities', projectId] });
-      alert('✅ Đã cập nhật activity thành công!');
+    onSuccess: async () => {
+      // Invalidate and refetch queries to reload data
+      await queryClient.invalidateQueries({ queryKey: ['activities', projectId] });
+      await queryClient.refetchQueries({ queryKey: ['activities', projectId] });
+      
+      toast({
+        variant: "success",
+        title: "✅ Thành công!",
+        description: `Đã cập nhật activity "${formData.name}" thành công.`,
+      });
+      
       onOpenChange(false);
     },
     onError: (error: any) => {
-      alert('❌ ' + (error.message || 'Không thể cập nhật activity'));
+      toast({
+        variant: "destructive",
+        title: "❌ Lỗi",
+        description: error.message || 'Không thể cập nhật activity. Vui lòng thử lại.',
+      });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => activityApi.delete(projectId, activity!.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activities', projectId] });
-      alert('✅ Đã xóa activity thành công!');
+    onSuccess: async () => {
+      // Invalidate and refetch queries to reload data
+      await queryClient.invalidateQueries({ queryKey: ['activities', projectId] });
+      await queryClient.refetchQueries({ queryKey: ['activities', projectId] });
+      
+      toast({
+        variant: "success",
+        title: "✅ Thành công!",
+        description: `Đã xóa activity "${activity?.name}" thành công.`,
+      });
+      
       onOpenChange(false);
     },
     onError: (error: any) => {
-      alert('❌ ' + (error.message || 'Không thể xóa activity'));
+      toast({
+        variant: "destructive",
+        title: "❌ Lỗi",
+        description: error.message || 'Không thể xóa activity. Vui lòng thử lại.',
+      });
     },
   });
 
@@ -103,11 +129,20 @@ export function UpdateActivityDialog({
       return;
     }
 
+    // Calculate plannedEndDate from startDate + durationDays
+    let plannedEndDate: string | undefined;
+    if (startDate && formData.durationDays) {
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + formData.durationDays);
+      plannedEndDate = endDate.toISOString();
+    }
+
     const updateData: UpdateActivityDto = {
       name: formData.name,
       code: formData.code,
       description: formData.description,
       plannedStartDate: startDate?.toISOString(),
+      plannedEndDate: plannedEndDate,
       durationDays: formData.durationDays,
       status: formData.status as ActivityStatus,
       percentComplete: formData.percentComplete,
@@ -118,7 +153,7 @@ export function UpdateActivityDialog({
   };
 
   const handleDelete = () => {
-    if (confirm('Bạn có chắc chắn muốn xóa activity này?')) {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa activity "${activity?.name}"?`)) {
       deleteMutation.mutate();
     }
   };
@@ -220,13 +255,27 @@ export function UpdateActivityDialog({
             </div>
           </div>
 
+          {/* Calculated End Date - Preview */}
+          {startDate && formData.durationDays && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-sm text-blue-800">
+                <span className="font-semibold">📅 Ngày kết thúc dự kiến:</span>{' '}
+                {(() => {
+                  const endDate = new Date(startDate);
+                  endDate.setDate(endDate.getDate() + formData.durationDays);
+                  return format(endDate, 'dd/MM/yyyy', { locale: vi });
+                })()}
+              </div>
+            </div>
+          )}
+
           {/* Status & Progress */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="status">Trạng thái</Label>
               <Select
-                value={formData.status || 'NotStarted'}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
+                value={formData.status || ActivityStatus.NotStarted}
+                onValueChange={(value) => setFormData({ ...formData, status: value as ActivityStatus })}
               >
                 <SelectTrigger>
                   <SelectValue />

@@ -8,7 +8,7 @@ public static class MongoIndexConfiguration
     public static async System.Threading.Tasks.Task ConfigureIndexesAsync(IMongoContext context)
     {
         // Organizations
-        var orgsCollection = context.GetCollection<Organization>();
+        var orgsCollection = context.GetCollection<Organization>("Organizations");
         await orgsCollection.Indexes.CreateOneAsync(
             new CreateIndexModel<Organization>(
                 Builders<Organization>.IndexKeys.Ascending(x => x.Slug),
@@ -17,7 +17,7 @@ public static class MongoIndexConfiguration
         );
 
         // Users
-        var usersCollection = context.GetCollection<User>();
+        var usersCollection = context.GetCollection<User>("Users");
         await usersCollection.Indexes.CreateManyAsync(new[]
         {
             new CreateIndexModel<User>(
@@ -35,7 +35,7 @@ public static class MongoIndexConfiguration
         });
 
         // Projects
-        var projectsCollection = context.GetCollection<Project>();
+        var projectsCollection = context.GetCollection<Project>("Projects");
         await projectsCollection.Indexes.CreateManyAsync(new[]
         {
             new CreateIndexModel<Project>(
@@ -56,7 +56,7 @@ public static class MongoIndexConfiguration
         });
 
         // Schedule Activities
-        var activitiesCollection = context.GetCollection<ScheduleActivity>();
+        var activitiesCollection = context.GetCollection<ScheduleActivity>("ScheduleActivities");
         await activitiesCollection.Indexes.CreateManyAsync(new[]
         {
             new CreateIndexModel<ScheduleActivity>(
@@ -74,7 +74,7 @@ public static class MongoIndexConfiguration
         });
 
         // Risks
-        var risksCollection = context.GetCollection<Risk>();
+        var risksCollection = context.GetCollection<Risk>("Risks");
         await risksCollection.Indexes.CreateManyAsync(new[]
         {
             new CreateIndexModel<Risk>(
@@ -89,7 +89,7 @@ public static class MongoIndexConfiguration
         });
 
         // Issues
-        var issuesCollection = context.GetCollection<Issue>();
+        var issuesCollection = context.GetCollection<Issue>("Issues");
         await issuesCollection.Indexes.CreateManyAsync(new[]
         {
             new CreateIndexModel<Issue>(
@@ -107,7 +107,7 @@ public static class MongoIndexConfiguration
         });
 
         // Change Requests
-        var changesCollection = context.GetCollection<ChangeRequest>();
+        var changesCollection = context.GetCollection<ChangeRequest>("ChangeRequests");
         await changesCollection.Indexes.CreateManyAsync(new[]
         {
             new CreateIndexModel<ChangeRequest>(
@@ -119,7 +119,7 @@ public static class MongoIndexConfiguration
         });
 
         // Timesheets
-        var timesheetsCollection = context.GetCollection<Timesheet>();
+        var timesheetsCollection = context.GetCollection<Timesheet>("Timesheets");
         await timesheetsCollection.Indexes.CreateManyAsync(new[]
         {
             new CreateIndexModel<Timesheet>(

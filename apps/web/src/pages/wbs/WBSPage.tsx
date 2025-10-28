@@ -47,7 +47,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'tree', label: 'WBS/Activity', width: 350, minWidth: 200, maxWidth: 600, visible: true, resizable: true },
   { id: 'progress', label: 'Progress', width: 100, minWidth: 80, maxWidth: 150, visible: true, resizable: true },
   { id: 'dependencies', label: 'Dependencies', width: 80, minWidth: 60, maxWidth: 120, visible: true, resizable: true },
-  { id: 'dates', label: 'Dates', width: 180, minWidth: 150, maxWidth: 250, visible: true, resizable: true },
+  { id: 'dates', label: 'Dates', width: 200, minWidth: 180, maxWidth: 280, visible: true, resizable: true },
 ];
 
 export function WBSPage() {
@@ -855,15 +855,22 @@ export function WBSPage() {
           
           {/* Dates Column */}
           {datesColumn?.visible && (
-            <div className="flex items-center py-2 px-4 border-r" style={{ width: datesColumn.width }}>
+            <div className="flex flex-col justify-center py-2 px-2 border-r" style={{ width: datesColumn.width }}>
               {(() => {
                 const dateRange = getWBSNodeDateRange(node);
                 if (!dateRange) return <span className="text-xs text-gray-400">No dates</span>;
                 
                 return (
-                  <span className="text-xs text-gray-600">
-                    {format(dateRange.startDate, 'dd/MM', { locale: vi })} → {format(dateRange.endDate, 'dd/MM', { locale: vi })}
-                  </span>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <span className="text-gray-500">Start:</span>
+                      <span className="font-semibold">{format(dateRange.startDate, 'dd/MM/yyyy', { locale: vi })}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <span className="text-gray-500">End:</span>
+                      <span className="font-semibold">{format(dateRange.endDate, 'dd/MM/yyyy', { locale: vi })}</span>
+                    </div>
+                  </div>
                 );
               })()}
             </div>
@@ -988,15 +995,24 @@ export function WBSPage() {
           
           {/* Dates Column */}
           {datesColumn?.visible && (
-            <div className="flex items-center py-2 px-4 border-r" style={{ width: datesColumn.width }}>
-              <span className="text-xs text-gray-600">
-                {startDate && endDate && (
-                  <>
-                    {format(startDate, 'dd/MM', { locale: vi })} → {format(endDate, 'dd/MM')}
-                    <span className="ml-1 text-gray-400">({activity.durationDays}d)</span>
-                  </>
-                )}
-              </span>
+            <div className="flex flex-col justify-center py-2 px-2 border-r" style={{ width: datesColumn.width }}>
+              {startDate && endDate ? (
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1 text-xs text-gray-600">
+                    <span className="text-gray-500">Start:</span>
+                    <span className="font-semibold">{format(startDate, 'dd/MM/yyyy', { locale: vi })}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-600">
+                    <span className="text-gray-500">End:</span>
+                    <span className="font-semibold">{format(endDate, 'dd/MM/yyyy', { locale: vi })}</span>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    ({activity.durationDays} days)
+                  </div>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400">No dates</span>
+              )}
             </div>
           )}
         </div>

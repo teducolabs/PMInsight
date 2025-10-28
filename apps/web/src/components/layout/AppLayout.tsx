@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { Footer } from './Footer';
+import { Toaster } from '@/components/ui/toaster';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -26,6 +27,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         {/* Footer */}
         <Footer />
       </div>
+      
+      {/* Toast Notifications */}
+      <Toaster />
     </div>
   );
 }
