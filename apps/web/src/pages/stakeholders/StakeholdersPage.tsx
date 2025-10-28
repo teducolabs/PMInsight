@@ -71,10 +71,10 @@ export function StakeholdersPage() {
             </p>
             <div className="mt-2 flex gap-4 text-sm">
               <div>
-                <strong>Influence:</strong> Khả năng tác động đến dự án
+                <strong>Ảnh hưởng:</strong> Khả năng tác động đến dự án
               </div>
               <div>
-                <strong>Interest:</strong> Mức độ quan tâm đến dự án
+                <strong>Quan tâm:</strong> Mức độ quan tâm đến dự án
               </div>
             </div>
           </div>

@@ -195,18 +195,18 @@ export function UpdateStakeholderDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={StakeholderType.Internal}>Internal (Nội bộ)</SelectItem>
-                  <SelectItem value={StakeholderType.External}>External (Bên ngoài)</SelectItem>
-                  <SelectItem value={StakeholderType.Customer}>Customer (Khách hàng)</SelectItem>
-                  <SelectItem value={StakeholderType.Vendor}>Vendor (Nhà cung cấp)</SelectItem>
-                  <SelectItem value={StakeholderType.Partner}>Partner (Đối tác)</SelectItem>
+                  <SelectItem value={StakeholderType.Internal}>Nội bộ</SelectItem>
+                  <SelectItem value={StakeholderType.External}>Bên ngoài</SelectItem>
+                  <SelectItem value={StakeholderType.Customer}>Khách hàng</SelectItem>
+                  <SelectItem value={StakeholderType.Vendor}>Nhà cung cấp</SelectItem>
+                  <SelectItem value={StakeholderType.Partner}>Đối tác</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Influence */}
             <div>
-              <Label htmlFor="influence">Influence (Ảnh hưởng) *</Label>
+              <Label htmlFor="influence">Mức độ ảnh hưởng *</Label>
               <Select
                 value={formData.influence.toString()}
                 onValueChange={(value) => setFormData({ ...formData, influence: parseInt(value) as InfluenceLevel })}
@@ -215,18 +215,18 @@ export function UpdateStakeholderDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 - Very Low</SelectItem>
-                  <SelectItem value="2">2 - Low</SelectItem>
-                  <SelectItem value="3">3 - Medium</SelectItem>
-                  <SelectItem value="4">4 - High</SelectItem>
-                  <SelectItem value="5">5 - Very High</SelectItem>
+                  <SelectItem value="1">1 - Rất thấp</SelectItem>
+                  <SelectItem value="2">2 - Thấp</SelectItem>
+                  <SelectItem value="3">3 - Trung bình</SelectItem>
+                  <SelectItem value="4">4 - Cao</SelectItem>
+                  <SelectItem value="5">5 - Rất cao</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Interest */}
             <div className="col-span-2">
-              <Label htmlFor="interest">Interest (Mức độ quan tâm) *</Label>
+              <Label htmlFor="interest">Mức độ quan tâm *</Label>
               <Select
                 value={formData.interest.toString()}
                 onValueChange={(value) => setFormData({ ...formData, interest: parseInt(value) as InterestLevel })}
@@ -235,11 +235,11 @@ export function UpdateStakeholderDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 - Very Low</SelectItem>
-                  <SelectItem value="2">2 - Low</SelectItem>
-                  <SelectItem value="3">3 - Medium</SelectItem>
-                  <SelectItem value="4">4 - High</SelectItem>
-                  <SelectItem value="5">5 - Very High</SelectItem>
+                  <SelectItem value="1">1 - Rất thấp</SelectItem>
+                  <SelectItem value="2">2 - Thấp</SelectItem>
+                  <SelectItem value="3">3 - Trung bình</SelectItem>
+                  <SelectItem value="4">4 - Cao</SelectItem>
+                  <SelectItem value="5">5 - Rất cao</SelectItem>
                 </SelectContent>
               </Select>
             </div>

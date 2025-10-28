@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Mail, Phone } from 'lucide-react';
+import { Edit, Trash2, Mail, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { UpdateStakeholderDialog } from './UpdateStakeholderDialog';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -35,6 +35,7 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
   const [selectedStakeholder, setSelectedStakeholder] = useState<Stakeholder | null>(null);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [stakeholderToDelete, setStakeholderToDelete] = useState<Stakeholder | null>(null);
+  const [isTableExpanded, setIsTableExpanded] = useState(false);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ['stakeholders', projectId],
@@ -115,15 +116,46 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
   }
 
   return (
-    <div className="rounded-lg border bg-white">
+    <div className="space-y-4">
+      {/* Collapsible Info Card */}
+      <div className="rounded-lg border bg-white">
+        <button
+          onClick={() => setIsTableExpanded(!isTableExpanded)}
+          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900">💡 Hướng dẫn sử dụng</h3>
+          </div>
+          {isTableExpanded ? (
+            <ChevronUp className="h-5 w-5 text-gray-600" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-gray-600" />
+          )}
+        </button>
+        
+        {isTableExpanded && (
+          <div className="px-4 pb-4 text-sm text-gray-600">
+            <ul className="space-y-2">
+              <li>• <strong>Ảnh hưởng (Influence):</strong> Khả năng của stakeholder tác động đến dự án</li>
+              <li>• <strong>Quan tâm (Interest):</strong> Mức độ quan tâm của stakeholder đối với dự án</li>
+              <li>• Click vào biểu tượng <Edit className="inline h-3 w-3" /> để chỉnh sửa thông tin</li>
+              <li>• Click vào biểu tượng <Trash2 className="inline h-3 w-3" /> để xóa stakeholder</li>
+              <li>• Click vào biểu tượng <Mail className="inline h-3 w-3" /> hoặc <Phone className="inline h-3 w-3" /> để liên hệ trực tiếp</li>
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Stakeholders Table */}
+      <div className="rounded-lg border bg-white">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Tên</TableHead>
             <TableHead>Vai trò</TableHead>
             <TableHead>Loại</TableHead>
-            <TableHead>Influence</TableHead>
-            <TableHead>Interest</TableHead>
+            <TableHead>Ảnh hưởng</TableHead>
+            <TableHead>Quan tâm</TableHead>
             <TableHead>Liên hệ</TableHead>
             <TableHead className="text-right">Hành động</TableHead>
           </TableRow>
@@ -138,12 +170,12 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
               </TableCell>
               <TableCell>
                 <Badge className={getInfluenceColor(stakeholder.influence)}>
-                  Level {stakeholder.influence}
+                  Mức {stakeholder.influence}
                 </Badge>
               </TableCell>
               <TableCell>
                 <Badge className={getInterestColor(stakeholder.interest)}>
-                  Level {stakeholder.interest}
+                  Mức {stakeholder.interest}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -183,6 +215,7 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
           ))}
         </TableBody>
       </Table>
+      </div>
 
       {/* Update Dialog */}
       <UpdateStakeholderDialog

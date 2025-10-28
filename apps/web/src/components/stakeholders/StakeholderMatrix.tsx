@@ -37,30 +37,30 @@ export function StakeholderMatrix({ projectId }: StakeholderMatrixProps) {
       {/* Matrix Legend */}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border-2 border-red-300 bg-red-50 p-4">
-          <h3 className="font-semibold text-red-900">Manage Closely</h3>
-          <p className="text-sm text-red-700">High Influence, High Interest</p>
+          <h3 className="font-semibold text-red-900">Quản lý chặt chẽ</h3>
+          <p className="text-sm text-red-700">Ảnh hưởng cao, Quan tâm cao</p>
           <p className="text-xs text-red-600 mt-1">Quản lý chặt chẽ, giao tiếp thường xuyên</p>
         </div>
         <div className="rounded-lg border-2 border-orange-300 bg-orange-50 p-4">
-          <h3 className="font-semibold text-orange-900">Keep Satisfied</h3>
-          <p className="text-sm text-orange-700">High Influence, Low Interest</p>
+          <h3 className="font-semibold text-orange-900">Giữ hài lòng</h3>
+          <p className="text-sm text-orange-700">Ảnh hưởng cao, Quan tâm thấp</p>
           <p className="text-xs text-orange-600 mt-1">Giữ hài lòng, cập nhật định kỳ</p>
         </div>
         <div className="rounded-lg border-2 border-blue-300 bg-blue-50 p-4">
-          <h3 className="font-semibold text-blue-900">Keep Informed</h3>
-          <p className="text-sm text-blue-700">Low Influence, High Interest</p>
+          <h3 className="font-semibold text-blue-900">Thông tin đầy đủ</h3>
+          <p className="text-sm text-blue-700">Ảnh hưởng thấp, Quan tâm cao</p>
           <p className="text-xs text-blue-600 mt-1">Thông tin đầy đủ, tránh vấn đề</p>
         </div>
         <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-4">
-          <h3 className="font-semibold text-gray-900">Monitor</h3>
-          <p className="text-sm text-gray-700">Low Influence, Low Interest</p>
+          <h3 className="font-semibold text-gray-900">Theo dõi</h3>
+          <p className="text-sm text-gray-700">Ảnh hưởng thấp, Quan tâm thấp</p>
           <p className="text-xs text-gray-600 mt-1">Theo dõi, thông tin tối thiểu</p>
         </div>
       </div>
 
       {/* Matrix Chart */}
-      <div className="rounded-lg border bg-white p-6">
-        <div className="relative h-[600px] w-full">
+      <div className="rounded-lg border bg-white p-8">
+        <div className="relative mx-auto" style={{ width: 'calc(100% - 120px)', height: '600px', marginLeft: '100px', marginBottom: '60px' }}>
           {/* Grid background */}
           <div className="absolute inset-0 grid grid-cols-5 grid-rows-5 gap-0.5">
             {Array.from({ length: 25 }).map((_, i) => {
@@ -77,28 +77,45 @@ export function StakeholderMatrix({ projectId }: StakeholderMatrixProps) {
             })}
           </div>
 
-          {/* Axis labels */}
-          <div className="absolute -left-20 top-0 flex h-full flex-col justify-between py-4 text-sm font-medium text-gray-600">
-            <span>Very High (5)</span>
-            <span>High (4)</span>
-            <span>Medium (3)</span>
-            <span>Low (2)</span>
-            <span>Very Low (1)</span>
-          </div>
-          <div className="absolute -bottom-10 left-0 flex w-full justify-between px-4 text-sm font-medium text-gray-600">
-            <span>1</span>
-            <span>2</span>
-            <span>3</span>
-            <span>4</span>
-            <span>5</span>
+          {/* Y-axis labels (Influence) */}
+          <div className="absolute -left-24 top-0 flex h-full flex-col justify-between text-right text-sm font-medium text-gray-600" style={{ width: '90px' }}>
+            <span className="leading-none">Rất cao (5)</span>
+            <span className="leading-none">Cao (4)</span>
+            <span className="leading-none">Trung bình (3)</span>
+            <span className="leading-none">Thấp (2)</span>
+            <span className="leading-none">Rất thấp (1)</span>
           </div>
 
-          {/* Axis titles */}
-          <div className="absolute -left-32 top-1/2 -translate-y-1/2 -rotate-90 text-sm font-bold text-gray-700">
-            INFLUENCE →
+          {/* X-axis labels (Interest) */}
+          <div className="absolute left-0 flex w-full justify-between text-center text-sm font-medium text-gray-600" style={{ top: 'calc(100% + 12px)' }}>
+            <span style={{ width: '20%' }}>1</span>
+            <span style={{ width: '20%' }}>2</span>
+            <span style={{ width: '20%' }}>3</span>
+            <span style={{ width: '20%' }}>4</span>
+            <span style={{ width: '20%' }}>5</span>
           </div>
-          <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-sm font-bold text-gray-700">
-            INTEREST →
+
+          {/* Y-axis title (Influence) */}
+          <div 
+            className="absolute text-sm font-bold text-gray-700"
+            style={{ 
+              left: '-90px', 
+              top: '50%', 
+              transform: 'translateY(-50%) rotate(-90deg)',
+              transformOrigin: 'center',
+              width: '200px',
+              textAlign: 'center'
+            }}
+          >
+            ẢNH HƯỞNG →
+          </div>
+
+          {/* X-axis title (Interest) */}
+          <div 
+            className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-gray-700"
+            style={{ top: 'calc(100% + 40px)' }}
+          >
+            QUAN TÂM →
           </div>
 
           {/* Stakeholder dots */}
