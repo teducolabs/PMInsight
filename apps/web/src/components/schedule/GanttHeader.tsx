@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, differenceInCalendarWeeks } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { ViewMode } from './types';
 
@@ -6,10 +6,11 @@ interface GanttHeaderProps {
   columns: Date[];
   columnWidth: number;
   viewMode: ViewMode;
+  projectStartDate?: Date;
 }
 
-export function GanttHeader({ columns, columnWidth, viewMode }: GanttHeaderProps) {
-  const formatColumn = (date: Date) => {
+export function GanttHeader({ columns, columnWidth, viewMode, projectStartDate }: GanttHeaderProps) {
+  const formatColumn = (date: Date, index: number) => {
     switch (viewMode) {
       case 'day':
         return {
@@ -17,9 +18,13 @@ export function GanttHeader({ columns, columnWidth, viewMode }: GanttHeaderProps
           secondary: format(date, 'EEE', { locale: vi }),
         };
       case 'week':
+        // Calculate week number from project start date
+        const weekNum = projectStartDate 
+          ? differenceInCalendarWeeks(date, projectStartDate, { weekStartsOn: 1 }) + 1
+          : index + 1;
         return {
           primary: format(date, 'dd/MM', { locale: vi }),
-          secondary: `Tuần ${format(date, 'w', { locale: vi })}`,
+          secondary: `Tuần ${weekNum}`,
         };
       case 'month':
         return {
@@ -33,7 +38,7 @@ export function GanttHeader({ columns, columnWidth, viewMode }: GanttHeaderProps
     <div className="flex h-full">
       {/* Timeline columns */}
       {columns.map((column, index) => {
-        const { primary, secondary } = formatColumn(column);
+        const { primary, secondary } = formatColumn(column, index);
         const isWeekend = column.getDay() === 0 || column.getDay() === 6;
 
         return (

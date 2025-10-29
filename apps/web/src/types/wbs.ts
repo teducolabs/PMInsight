@@ -172,8 +172,10 @@ export interface CreateWBSNodeRequest {
 }
 
 export interface UpdateWBSNodeRequest {
+  code?: string;
   name?: string;
   description?: string;
+  type?: WBSNodeType;
   scheduleMode?: ScheduleMode;
 
   // Schedule
@@ -191,6 +193,7 @@ export interface UpdateWBSNodeRequest {
   actualHours?: number;
   plannedCost?: number;
   actualCost?: number;
+  currency?: string;
 
   // Dependencies
   predecessors?: ActivityDependency[];
@@ -198,6 +201,13 @@ export interface UpdateWBSNodeRequest {
   // Constraint
   constraint?: ActivityConstraint;
   priority?: TaskPriority;
+
+  // Summary-specific
+  deliverables?: string[];
+  acceptanceCriteria?: string;
+  responsibleOrganization?: string;
+  assumptions?: string[];
+  scopeConstraints?: string[];
 
   // Notes
   notes?: string;

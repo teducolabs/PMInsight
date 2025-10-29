@@ -2,9 +2,10 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useProject } from '@/lib/context/ProjectContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, List, Calendar } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, List, Calendar, Link } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { WBSNode } from '@/types/wbs';
@@ -224,8 +225,17 @@ export function WBSPage() {
     return rows;
   }, [expandedNodes, wbsNodes]);
 
-  // Calculate WBS node date range (roll-up from all child tasks/milestones)
+  // Calculate WBS node date range (use node's own dates or roll-up from children)
   const getWBSNodeDateRange = (node: WBSNode): { startDate: Date; endDate: Date } | null => {
+    // First, check if node itself has dates
+    if (node.plannedStartDate && node.plannedEndDate) {
+      return {
+        startDate: new Date(node.plannedStartDate),
+        endDate: new Date(node.plannedEndDate),
+      };
+    }
+
+    // If no own dates, roll-up from children
     const allTasks: WBSNode[] = [];
 
     const collectTasks = (n: WBSNode) => {
@@ -247,7 +257,7 @@ export function WBSPage() {
 
     const dates = validTasks.flatMap((a: WBSNode) => [
       new Date(a.plannedStartDate!),
-      new Date(a.plannedEndDate!)
+      new Date(a.plannedEndDate!),
     ]);
 
     return {
@@ -625,8 +635,10 @@ export function WBSPage() {
     try {
       // Use new unified API to update the node
       await wbsApi.updateNode(wbsId, editingNode.id, {
+        code: nodeData.code,
         name: nodeData.name,
         description: nodeData.description,
+        type: nodeData.type, // Add type field
         scheduleMode: nodeData.scheduleMode,
         plannedStartDate: nodeData.plannedStartDate,
         plannedEndDate: nodeData.plannedEndDate,
@@ -640,9 +652,15 @@ export function WBSPage() {
         actualHours: nodeData.actualHours,
         plannedCost: nodeData.plannedCost,
         actualCost: nodeData.actualCost,
+        currency: nodeData.currency,
         predecessors: nodeData.predecessors,
         constraint: nodeData.constraint,
         priority: nodeData.priority,
+        deliverables: nodeData.deliverables,
+        acceptanceCriteria: nodeData.acceptanceCriteria,
+        responsibleOrganization: nodeData.responsibleOrganization,
+        assumptions: nodeData.assumptions,
+        scopeConstraints: nodeData.scopeConstraints,
         notes: nodeData.notes,
       });
 
@@ -693,6 +711,32 @@ export function WBSPage() {
       }
       return node;
     });
+  };
+
+  // Handle progress update
+  const handleProgressSave = async (nodeId: string) => {
+    if (!wbsId || !editingProgress) return;
+
+    try {
+      const progress = parseInt(progressValue) || 0;
+      const clampedProgress = Math.max(0, Math.min(100, progress));
+      
+      console.log('💾 Updating progress for node', nodeId, 'to', clampedProgress);
+      
+      await wbsApi.updateNodeProgress(wbsId, nodeId, clampedProgress);
+      
+      // Reload WBS after update
+      const updatedWBS = await wbsApi.getById(wbsId);
+      if (updatedWBS) {
+        setWbsNodes(updatedWBS.tree || []);
+      }
+      
+      setEditingProgress(null);
+      console.log('✅ Updated progress for node', nodeId);
+    } catch (error) {
+      console.error('❌ Failed to update progress:', error);
+      setEditingProgress(null);
+    }
   };
 
   // Handle dependencies save (for Task/Milestone nodes)
@@ -803,38 +847,105 @@ export function WBSPage() {
 
         {/* Progress Column */}
         {progressColumn?.visible && (
-          <div className="flex items-center justify-center py-2 px-4 border-r" style={{ width: progressColumn.width }}>
-            <span className="text-sm text-gray-400">-</span>
+          <div 
+            className="flex items-center gap-2 py-2 px-4 border-r" 
+            style={{ width: progressColumn.width }}
+          >
+            {editingProgress === node.id ? (
+              <div className="flex items-center gap-1 w-full">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={progressValue}
+                  onChange={(e) => setProgressValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleProgressSave(node.id);
+                    } else if (e.key === 'Escape') {
+                      setEditingProgress(null);
+                    }
+                  }}
+                  onBlur={() => handleProgressSave(node.id)}
+                  className="h-7 w-16 text-sm"
+                  autoFocus
+                />
+                <span className="text-xs">%</span>
+              </div>
+            ) : (
+              <div 
+                className="flex items-center gap-2 w-full cursor-pointer hover:bg-gray-50 rounded px-1"
+                onClick={() => {
+                  setEditingProgress(node.id);
+                  setProgressValue(node.percentComplete?.toString() || '0');
+                }}
+              >
+                <div className="flex-1 bg-gray-200 rounded-full h-2 relative">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${node.percentComplete || 0}%` }}
+                  />
+                </div>
+                <span className="text-xs font-medium text-gray-700 w-10 text-right">
+                  {node.percentComplete || 0}%
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         {/* Dependencies Column */}
         {dependenciesColumn?.visible && (
-          <div className="flex items-center justify-center py-2 px-4 border-r" style={{ width: dependenciesColumn.width }}>
-            <span className="text-sm text-gray-400">-</span>
+          <div 
+            className="flex items-center justify-center py-2 px-2 border-r" 
+            style={{ width: dependenciesColumn.width }}
+          >
+            {node.predecessors && node.predecessors.length > 0 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingDependencies(node)}
+                className="h-7 px-2 text-xs"
+              >
+                <Link className="w-3 h-3 mr-1" />
+                {node.predecessors.length} dep(s)
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingDependencies(node)}
+                className="h-7 px-2 text-xs text-gray-400"
+              >
+                <Link className="w-3 h-3 mr-1" />
+                Add
+              </Button>
+            )}
           </div>
         )}
 
         {/* Dates Column */}
         {datesColumn?.visible && (
           <div className="flex flex-col justify-center py-2 px-2 border-r" style={{ width: datesColumn.width }}>
-            {(() => {
-              const dateRange = getWBSNodeDateRange(node);
-              if (!dateRange) return <span className="text-xs text-gray-400">No dates</span>;
-
-              return (
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <span className="text-gray-500">Start:</span>
-                    <span className="font-semibold">{format(dateRange.startDate, 'dd/MM/yyyy', { locale: vi })}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <span className="text-gray-500">End:</span>
-                    <span className="font-semibold">{format(dateRange.endDate, 'dd/MM/yyyy', { locale: vi })}</span>
-                  </div>
+            {node.plannedStartDate && node.plannedEndDate ? (
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <span className="text-gray-500">Bắt đầu:</span>
+                  <span className="font-semibold">{format(new Date(node.plannedStartDate), 'dd/MM/yyyy', { locale: vi })}</span>
                 </div>
-              );
-            })()}
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <span className="text-gray-500">Kết thúc:</span>
+                  <span className="font-semibold">{format(new Date(node.plannedEndDate), 'dd/MM/yyyy', { locale: vi })}</span>
+                </div>
+                {node.durationDays && (
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <span>⏱️ {node.durationDays} ngày</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-gray-400">No dates</span>
+            )}
           </div>
         )}
       </div>
@@ -1062,6 +1173,7 @@ export function WBSPage() {
               columns={ganttColumns}
               columnWidth={columnWidth}
               viewMode={viewMode}
+              projectStartDate={projectInfo.startDate}
             />
           </div>
         </div>
@@ -1112,44 +1224,43 @@ export function WBSPage() {
               {visibleRows.map((row, index) => {
                 const { node } = row;
 
-                // For Summary nodes: show summary bar if collapsed and has children
+                // For ALL nodes with dates: show task bar
+                if (!node.plannedStartDate || !node.plannedEndDate) {
+                  return null; // Skip nodes without dates
+                }
+
+                // For Summary nodes: show summary bar (regardless of expand state)
                 if (node.type === 'Summary') {
-                  const isExpanded = expandedNodes.has(node.id);
-                  const hasChildren = node.children && node.children.length > 0;
+                  const position = getWBSPosition(node);
+                  if (!position) return null;
 
-                  if (!isExpanded && hasChildren) {
-                    const position = getWBSPosition(node);
-                    if (!position) return null;
-
-                    const progress = getWBSProgress(node);
-                    const tooltipContent = (
-                      <div className="text-xs">
-                        <div className="font-semibold mb-1">{node.name}</div>
-                        <div className="text-gray-400">
-                          {format(position.dateRange.startDate, 'dd/MM/yyyy', { locale: vi })} → {' '}
-                          {format(position.dateRange.endDate, 'dd/MM/yyyy', { locale: vi })}
-                        </div>
-                        <div className="mt-1">Tiến độ: {progress}%</div>
+                  const progress = getWBSProgress(node);
+                  const tooltipContent = (
+                    <div className="text-xs">
+                      <div className="font-semibold mb-1">{node.name}</div>
+                      <div className="text-gray-400">
+                        {format(position.dateRange.startDate, 'dd/MM/yyyy', { locale: vi })} → {' '}
+                        {format(position.dateRange.endDate, 'dd/MM/yyyy', { locale: vi })}
                       </div>
-                    );
+                      <div className="mt-1">Tiến độ: {progress}%</div>
+                    </div>
+                  );
 
-                    return (
-                      <WBSSummaryBar
-                        key={`wbs-${node.id}`}
-                        x={position.x}
-                        y={index * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2}
-                        width={position.width}
-                        height={32}
-                        label={`${progress}%`}
-                        progress={progress}
-                        tooltipContent={tooltipContent}
-                        onMouseEnter={() => setHoveredTask(`wbs-${node.id}`)}
-                        onMouseLeave={() => setHoveredTask(null)}
-                        onClick={() => toggleNode(node.id)}
-                      />
-                    );
-                  }
-                  return null;
+                  return (
+                    <WBSSummaryBar
+                      key={`wbs-${node.id}`}
+                      x={position.x}
+                      y={index * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2}
+                      width={position.width}
+                      height={32}
+                      label={`${progress}%`}
+                      progress={progress}
+                      tooltipContent={tooltipContent}
+                      onMouseEnter={() => setHoveredTask(`wbs-${node.id}`)}
+                      onMouseLeave={() => setHoveredTask(null)}
+                      onClick={() => setEditingNode(node)}
+                    />
+                  );
                 }
 
                 // For Task/Milestone nodes: show task bar with drag handles
