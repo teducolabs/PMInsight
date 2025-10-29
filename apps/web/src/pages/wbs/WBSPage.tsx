@@ -2,18 +2,14 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useProject } from '@/lib/context/ProjectContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, CheckSquare, Diamond, Maximize2, Minimize2 } from 'lucide-react';
+import { Plus, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { WBSNode } from '@/types/wbs';
-import WBSNodeDependency, { flattenWBSTree } from '@/types/wbs';
-import { GanttHeader } from '@/components/schedule/GanttHeader';
+import { flattenWBSTree } from '@/types/wbs';
 import { GanttGrid } from '@/components/schedule/GanttGrid';
-import { GanttTask } from '@/components/schedule/GanttTask';
 import { GanttTimeline } from '@/components/schedule/GanttTimeline';
-import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
 import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
 import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
@@ -23,7 +19,6 @@ import type { Project } from '@/types/project';
 import { ProjectStatus } from '@/types/project';
 import { 
   parseDependencyString, 
-  dependenciesToString, 
   validateDependencies,
   assignSequenceIds 
 } from '@/lib/dependencies-parser';
@@ -31,30 +26,16 @@ import {
   validateTaskMove,
   calculateCascadingUpdates
 } from '@/lib/dependency-scheduler';
+import { ProjectInfoBanner } from './ProjectInfoBanner';
+import { DependenciesHelpCard } from './DependenciesHelpCard';
+import { DragInfoTooltip } from './DragInfoTooltip';
+import { WBSTableHeader } from './WBSTableHeader';
+import { WBSTableRow } from './WBSTableRow';
+import { GanttTasksRenderer } from './GanttTasksRenderer';
+import { ROW_HEIGHT, DEFAULT_COLUMNS, type ColumnConfig } from './columnConfig';
 
 
 type ViewMode = 'day' | 'week' | 'month';
-
-const ROW_HEIGHT = 50;
-// Column configuration
-type ColumnConfig = {
-  id: string;
-  label: string;
-  width: number;
-  minWidth: number;
-  maxWidth: number;
-  visible: boolean;
-  resizable: boolean;
-};
-
-const DEFAULT_COLUMNS: ColumnConfig[] = [
-  { id: 'id', label: 'ID', width: 60, minWidth: 50, maxWidth: 80, visible: true, resizable: true },
-  { id: 'tree', label: 'WBS/Activity', width: 400, minWidth: 250, maxWidth: 700, visible: true, resizable: true },
-  { id: 'duration', label: 'Duration (days)', width: 120, minWidth: 100, maxWidth: 180, visible: true, resizable: true },
-  { id: 'progress', label: 'Progress', width: 120, minWidth: 100, maxWidth: 180, visible: true, resizable: true },
-  { id: 'dependencies', label: 'Predecessors', width: 180, minWidth: 120, maxWidth: 300, visible: true, resizable: true },
-  { id: 'dates', label: 'Dates', width: 180, minWidth: 150, maxWidth: 250, visible: true, resizable: true },
-];
 
 export function WBSPage() {
   const { currentProjectId } = useProject();
@@ -90,9 +71,6 @@ export function WBSPage() {
   const [editingDependenciesInline, setEditingDependenciesInline] = useState<string | null>(null);
   const [dependenciesValue, setDependenciesValue] = useState<string>('');
   const [dependenciesErrors, setDependenciesErrors] = useState<string[]>([]);
-
-  // Dependencies edit state (old dialog - keep for reference)
-  const [editingDependencies, setEditingDependencies] = useState<WBSNode | null>(null);
 
   // Node edit state (unified for WBS and tasks)
   const [creatingNode, setCreatingNode] = useState(false);
@@ -816,356 +794,74 @@ export function WBSPage() {
     }
   };
 
-  // Handle dependencies save (for Task/Milestone nodes)
-  const handleSaveDependencies = async (nodeId: string, dependencies: WBSNodeDependency[]) => {
+  // Handle dependencies save
+  const handleDependenciesSave = async (nodeId: string) => {
     if (!wbsId) return;
-
-    console.log('💾 handleSaveDependencies called:', { nodeId, dependencies });
-    console.log('💾 Dependencies to save:', JSON.stringify(dependencies, null, 2));
-
+    
     try {
-      // Update node with new predecessors via API
-      const updatePayload = {
-        predecessors: dependencies,
-      };
-      console.log('💾 Sending update payload:', updatePayload);
+      const allNodesFlat = flattenWBSTree(wbsNodes);
+      const { dependencies, errors } = parseDependencyString(dependenciesValue, allNodesFlat);
       
-      const result = await wbsApi.updateNode(wbsId, nodeId, updatePayload);
-      console.log('✅ Update successful, result:', result);
-
-      // Reload WBS data
-      await reloadWBS();
-      console.log('✅ WBS reloaded successfully');
-    } catch (error) {
-      console.error('❌ Failed to save dependencies:', error);
-      if (error instanceof Error) {
-        console.error('❌ Error details:', error.message);
+      if (errors.length === 0) {
+        // Validate logic
+        const warnings = validateDependencies(nodeId, dependencies, allNodesFlat);
+        if (warnings.length > 0) {
+          console.warn('Dependency warnings:', warnings);
+        }
+        
+        // Save to API
+        await wbsApi.updateNode(wbsId, nodeId, { predecessors: dependencies });
+        
+        // Reload data
+        await reloadWBS();
+      } else {
+        console.error('Parse errors:', errors);
+        alert(`Lỗi cú pháp:\n${errors.join('\n')}`);
       }
+    } catch (error) {
+      console.error('Failed to update dependencies:', error);
+    } finally {
+      setEditingDependenciesInline(null);
+      setDependenciesErrors([]);
     }
   };
 
   const renderRow = (row: RowItem) => {
-    const idColumn = columns.find(c => c.id === 'id');
-    const treeColumn = columns.find(c => c.id === 'tree');
-    const durationColumn = columns.find(c => c.id === 'duration');
-    const progressColumn = columns.find(c => c.id === 'progress');
-    const dependenciesColumn = columns.find(c => c.id === 'dependencies');
-    const datesColumn = columns.find(c => c.id === 'dates');
-
-    // All rows are now WBS nodes (can be Summary, Task, or Milestone)
     const { node, depth } = row;
-    const isExpanded = expandedNodes.has(node.id);
-    const hasChildren = node.children && node.children.length > 0;
-
+    
     return (
-      <div
+      <WBSTableRow
         key={`node-${node.id}`}
-        className="flex border-b hover:bg-gray-50"
-        style={{ height: ROW_HEIGHT }}
-      >
-        {/* ID Column */}
-        {idColumn?.visible && (
-          <div
-            className="flex items-center justify-center py-2 px-2 border-r bg-gray-50"
-            style={{ width: idColumn.width }}
-          >
-            <span className="text-sm font-mono font-semibold text-blue-600">
-              {node.sequenceId || '-'}
-            </span>
-          </div>
-        )}
-
-        {/* Tree Column */}
-        {treeColumn?.visible && (
-          <div
-            className="flex items-center gap-2 py-2 px-4 border-r"
-            style={{
-              width: treeColumn.width,
-              paddingLeft: `${depth * 24 + 16}px`,
-            }}
-          >
-            <button
-              onClick={() => toggleNode(node.id)}
-              className="w-5 h-5 flex items-center justify-center hover:bg-gray-200 rounded flex-shrink-0"
-            >
-              {hasChildren ? (
-                isExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )
-              ) : (
-                <span className="w-4" />
-              )}
-            </button>
-
-            {/* Icon based on node type */}
-            {node.type === 'Summary' && (
-              <FolderTree className="w-4 h-4 text-blue-600 flex-shrink-0" />
-            )}
-            {node.type === 'Task' && (
-              <CheckSquare className="w-4 h-4 text-green-600 flex-shrink-0" />
-            )}
-            {node.type === 'Milestone' && (
-              <Diamond className="w-4 h-4 text-purple-600 flex-shrink-0 fill-purple-600" />
-            )}
-
-            <div className="flex items-baseline gap-2 flex-1 min-w-0">
-              <span className="font-mono text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-0.5 rounded">
-                {node.code}
-              </span>
-              <span className="font-semibold truncate text-gray-900">{node.name}</span>
-            </div>
-
-            <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditingNode(node);
-                }}
-                title="Chỉnh sửa WBS node"
-                className="h-7 w-7 p-0"
-              >
-                <Pencil className="w-3 h-3" />
-              </Button>
-
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setParentNodeForCreate(node);
-                  setCreatingNode(true);
-                }}
-                title="Thêm WBS node con"
-                className="h-7 px-2"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                WBS
-              </Button>
-
-              {/* TODO: Add Task button - will use same dialog with type selector */}
-            </div>
-          </div>
-        )}
-
-        {/* Duration Column */}
-        {durationColumn?.visible && (
-          <div 
-            className="flex items-center py-2 px-4 border-r" 
-            style={{ width: durationColumn.width }}
-          >
-            {editingDuration === node.id ? (
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  min="0"
-                  value={durationValue}
-                  onChange={(e) => setDurationValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleDurationSave(node.id);
-                    } else if (e.key === 'Escape') {
-                      setEditingDuration(null);
-                    }
-                  }}
-                  onBlur={() => handleDurationSave(node.id)}
-                  className="h-7 w-20 text-sm"
-                  autoFocus
-                />
-                <span className="text-xs text-gray-500">days</span>
-              </div>
-            ) : (
-              <div 
-                className="cursor-pointer hover:bg-gray-50 px-2 py-1 rounded text-sm"
-                onClick={() => {
-                  setEditingDuration(node.id);
-                  setDurationValue(node.durationDays?.toString() || '0');
-                }}
-              >
-                {node.durationDays || 0}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Progress Column */}
-        {progressColumn?.visible && (
-          <div 
-            className="flex items-center gap-2 py-2 px-4 border-r" 
-            style={{ width: progressColumn.width }}
-          >
-            {editingProgress === node.id ? (
-              <div className="flex items-center gap-1 w-full">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={progressValue}
-                  onChange={(e) => setProgressValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleProgressSave(node.id);
-                    } else if (e.key === 'Escape') {
-                      setEditingProgress(null);
-                    }
-                  }}
-                  onBlur={() => handleProgressSave(node.id)}
-                  className="h-7 w-16 text-sm"
-                  autoFocus
-                />
-                <span className="text-xs">%</span>
-              </div>
-            ) : (
-              (() => {
-                // For Summary nodes: check if it has children tasks
-                const hasChildrenTasks = node.type === 'Summary' && node.children && node.children.length > 0;
-                const displayProgress = node.type === 'Summary' ? getWBSProgress(node) : (node.percentComplete || 0);
-                const canEdit = !(node.type === 'Summary' && hasChildrenTasks); // Can't edit if Summary with children
-                
-                return (
-                  <div 
-                    className={`flex items-center gap-2 w-full rounded px-1 ${canEdit ? 'cursor-pointer hover:bg-gray-50' : 'cursor-not-allowed opacity-60'}`}
-                    onClick={() => {
-                      if (canEdit) {
-                        setEditingProgress(node.id);
-                        setProgressValue(node.percentComplete?.toString() || '0');
-                      }
-                    }}
-                    title={hasChildrenTasks ? 'Progress được tính tự động từ các task con' : 'Click để chỉnh sửa progress'}
-                  >
-                    <div className="flex-1 bg-gray-200 rounded-full h-2 relative">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${displayProgress}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-gray-700 w-10 text-right">
-                      {displayProgress}%
-                    </span>
-                  </div>
-                );
-              })()
-            )}
-          </div>
-        )}
-
-        {/* Dependencies Column */}
-        {dependenciesColumn?.visible && (
-          <div 
-            className="flex items-center py-2 px-2 border-r relative group" 
-            style={{ width: dependenciesColumn.width }}
-          >
-            {editingDependenciesInline === node.id ? (
-              <div className="w-full">
-                <Input
-                  type="text"
-                  value={dependenciesValue}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setDependenciesValue(value);
-                    
-                    // Parse and validate in real-time
-                    const allNodesFlat = flattenWBSTree(wbsNodes);
-                    const { errors } = parseDependencyString(value, allNodesFlat);
-                    setDependenciesErrors(errors);
-                  }}
-                  onBlur={async () => {
-                    if (!wbsId) return;
-                    
-                    try {
-                      const allNodesFlat = flattenWBSTree(wbsNodes);
-                      const { dependencies, errors } = parseDependencyString(dependenciesValue, allNodesFlat);
-                      
-                      if (errors.length === 0) {
-                        // Validate logic
-                        const warnings = validateDependencies(node.id, dependencies, allNodesFlat);
-                        if (warnings.length > 0) {
-                          console.warn('Dependency warnings:', warnings);
-                          // You can show warnings to user here
-                        }
-                        
-                        // Save to API
-                        await wbsApi.updateNode(wbsId, node.id, { predecessors: dependencies });
-                        
-                        // Reload data
-                        await reloadWBS();
-                      } else {
-                        console.error('Parse errors:', errors);
-                        alert(`Lỗi cú pháp:\n${errors.join('\n')}`);
-                      }
-                    } catch (error) {
-                      console.error('Failed to update dependencies:', error);
-                    } finally {
-                      setEditingDependenciesInline(null);
-                      setDependenciesErrors([]);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur();
-                    } else if (e.key === 'Escape') {
-                      setEditingDependenciesInline(null);
-                      setDependenciesErrors([]);
-                    }
-                  }}
-                  className={`h-7 px-2 text-xs font-mono ${dependenciesErrors.length > 0 ? 'border-red-500' : ''}`}
-                  placeholder="3FS, 5SS+2d"
-                  autoFocus
-                />
-                {dependenciesErrors.length > 0 && (
-                  <div className="absolute z-10 top-full left-0 mt-1 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600 shadow-lg whitespace-nowrap">
-                    {dependenciesErrors.map((err, i) => (
-                      <div key={i}>• {err}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div
-                onClick={() => {
-                  const allNodesFlat = flattenWBSTree(wbsNodes);
-                  const depsString = dependenciesToString(node.predecessors || [], allNodesFlat);
-                  setDependenciesValue(depsString);
-                  setEditingDependenciesInline(node.id);
-                  setDependenciesErrors([]);
-                }}
-                className="w-full h-full flex items-center cursor-pointer hover:bg-blue-50 px-2 rounded"
-                title="Click để chỉnh sửa. Ví dụ: 3FS, 5SS+2d"
-              >
-                {node.predecessors && node.predecessors.length > 0 ? (
-                  <span className="text-xs font-mono text-blue-600">
-                    {dependenciesToString(node.predecessors, flattenWBSTree(wbsNodes))}
-                  </span>
-                ) : (
-                  <span className="text-xs text-gray-400">-</span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Dates Column */}
-        {datesColumn?.visible && (
-          <div className="flex items-center gap-2 py-2 px-3 border-r" style={{ width: datesColumn.width }}>
-            {node.plannedStartDate && node.plannedEndDate ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-700">
-                  {format(new Date(node.plannedStartDate), 'dd/MM/yy', { locale: vi })}
-                </span>
-                <span className="text-xs text-gray-400">→</span>
-                <span className="text-xs font-medium text-gray-700">
-                  {format(new Date(node.plannedEndDate), 'dd/MM/yy', { locale: vi })}
-                </span>
-              </div>
-            ) : (
-              <span className="text-xs text-gray-400">No dates</span>
-            )}
-          </div>
-        )}
-      </div>
+        node={node}
+        depth={depth}
+        columns={columns}
+        expandedNodes={expandedNodes}
+        wbsNodes={wbsNodes}
+        editingProgress={editingProgress}
+        progressValue={progressValue}
+        editingDuration={editingDuration}
+        durationValue={durationValue}
+        editingDependenciesInline={editingDependenciesInline}
+        dependenciesValue={dependenciesValue}
+        dependenciesErrors={dependenciesErrors}
+        onToggleNode={toggleNode}
+        onEditNode={setEditingNode}
+        onAddChild={(node) => {
+          setParentNodeForCreate(node);
+          setCreatingNode(true);
+        }}
+        onSetProgressValue={setProgressValue}
+        onSetEditingProgress={setEditingProgress}
+        onProgressSave={handleProgressSave}
+        onSetDurationValue={setDurationValue}
+        onSetEditingDuration={setEditingDuration}
+        onDurationSave={handleDurationSave}
+        onSetDependenciesValue={setDependenciesValue}
+        onSetDependenciesErrors={setDependenciesErrors}
+        onSetEditingDependenciesInline={setEditingDependenciesInline}
+        onDependenciesSave={handleDependenciesSave}
+        getWBSProgress={getWBSProgress}
+      />
     );
   };
 
@@ -1210,141 +906,17 @@ export function WBSPage() {
         />
       )}
 
-      {/* Dependencies Edit Dialog */}
-      {editingDependencies && (
-        <EditDependenciesDialog
-          open={!!editingDependencies}
-          onOpenChange={(open) => !open && setEditingDependencies(null)}
-          node={editingDependencies}
-          allNodes={wbsNodes}
-          onSave={handleSaveDependencies}
-        />
-      )}
-
       {/* Project Info Banner */}
-      <div className="rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{projectInfo.name}</h2>
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <FolderTree className="w-4 h-4 text-blue-600" />
-                <span className="text-gray-600">
-                  Từ <strong>{format(projectInfo.startDate, 'dd/MM/yyyy', { locale: vi })}</strong> đến{' '}
-                  <strong>{format(projectInfo.endDate, 'dd/MM/yyyy', { locale: vi })}</strong>
-                </span>
-                <span className="text-gray-400">
-                  ({Math.ceil((projectInfo.endDate.getTime() - projectInfo.startDate.getTime()) / (1000 * 60 * 60 * 24))} ngày)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-600" />
-                <span className="text-gray-600">
-                  Giai đoạn: <strong className="text-blue-700">{projectInfo.currentPhase}</strong>
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="text-3xl font-bold text-blue-600">{projectInfo.progress}%</div>
-            <div className="text-xs text-gray-500">Tiến độ tổng thể</div>
-            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-600 transition-all duration-300"
-                style={{ width: `${projectInfo.progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Timeline visualization */}
-        <div className="relative">
-          <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
-            <span>{format(projectInfo.startDate, 'dd/MM/yyyy', { locale: vi })}</span>
-            <div className="flex-1" />
-            <span className="text-blue-600 font-semibold">Hôm nay: {format(new Date(), 'dd/MM/yyyy', { locale: vi })}</span>
-            <div className="flex-1" />
-            <span>{format(projectInfo.endDate, 'dd/MM/yyyy', { locale: vi })}</span>
-          </div>
-
-          {/* Timeline bar */}
-          <div className="relative h-8 bg-gray-200 rounded-lg overflow-hidden">
-            {/* Progress fill */}
-            <div
-              className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300"
-              style={{ width: `${projectInfo.progress}%` }}
-            >
-              <div className="absolute inset-0 bg-white/20 animate-pulse" />
-            </div>
-
-            {/* Today marker */}
-            {(() => {
-              const today = new Date();
-              const totalDays = Math.ceil((projectInfo.endDate.getTime() - projectInfo.startDate.getTime()) / (1000 * 60 * 60 * 24));
-              const daysPassed = Math.ceil((today.getTime() - projectInfo.startDate.getTime()) / (1000 * 60 * 60 * 24));
-              const todayPercent = Math.max(0, Math.min(100, (daysPassed / totalDays) * 100));
-
-              return (
-                <>
-                  <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10"
-                    style={{ left: `${todayPercent}%` }}
-                  >
-                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-lg" />
-                  </div>
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 px-2 py-0.5 bg-red-500 text-white text-xs font-semibold rounded whitespace-nowrap shadow-lg"
-                    style={{
-                      left: `${todayPercent}%`,
-                      transform: `translate(${todayPercent > 80 ? '-100%' : todayPercent < 20 ? '0' : '-50%'}, -50%)`,
-                      marginLeft: todayPercent > 80 ? '-4px' : todayPercent < 20 ? '4px' : '0'
-                    }}
-                  >
-                    Hôm nay
-                  </div>
-                </>
-              );
-            })()}
-
-            {/* Phase markers */}
-            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-center justify-between px-2 pointer-events-none">
-              <span className="text-xs font-semibold text-white drop-shadow-lg">Bắt đầu</span>
-              <span className="text-xs font-semibold text-gray-700 drop-shadow-lg">Kết thúc</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ProjectInfoBanner
+        projectName={projectInfo.name}
+        startDate={projectInfo.startDate}
+        endDate={projectInfo.endDate}
+        currentPhase={projectInfo.currentPhase}
+        progress={projectInfo.progress}
+      />
 
       {/* Dependencies Help Card */}
-      <div className="rounded-lg border bg-gradient-to-r from-amber-50 to-yellow-50 p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold">
-            i
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-amber-900 mb-2">💡 Hướng dẫn nhập Dependencies (Predecessors)</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-amber-800 mb-2"><strong>Cú pháp:</strong> <code className="bg-white px-2 py-0.5 rounded font-mono">&lt;ID&gt;&lt;Type&gt;&lt;Lag&gt;</code></p>
-                <ul className="space-y-1 text-amber-700">
-                  <li>• <strong>ID:</strong> Số thứ tự task (cột ID bên trái)</li>
-                  <li>• <strong>Type:</strong> FS (Finish-Start), SS (Start-Start), FF (Finish-Finish), SF (hiếm dùng)</li>
-                  <li>• <strong>Lag:</strong> +2d (trì hoãn 2 ngày), -1d (sớm hơn 1 ngày), không ghi = 0</li>
-                </ul>
-              </div>
-              <div>
-                <p className="text-amber-800 mb-2"><strong>Ví dụ:</strong></p>
-                <ul className="space-y-1 text-amber-700 font-mono text-xs">
-                  <li>• <code className="bg-white px-2 py-0.5 rounded">3FS</code> → Bắt đầu sau khi task 3 hoàn thành</li>
-                  <li>• <code className="bg-white px-2 py-0.5 rounded">4FS+2d</code> → Bắt đầu 2 ngày sau khi task 4 xong</li>
-                  <li>• <code className="bg-white px-2 py-0.5 rounded">5SS</code> → Bắt đầu cùng lúc với task 5</li>
-                  <li>• <code className="bg-white px-2 py-0.5 rounded">3FS,5SS+1d</code> → Nhiều predecessors (phân cách bằng dấu phẩy)</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <DependenciesHelpCard />
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -1390,79 +962,24 @@ export function WBSPage() {
       </div>
       <div className="rounded-lg border bg-white overflow-hidden">
         {/* Drag info tooltip */}
-        {draggingTask && dragInfo && (() => {
-          // Check validation while dragging
-          const flatNodes = flattenWBSTree(wbsNodes);
-          const draggedNode = flatNodes.find(n => n.id === draggingTask);
-          const validation = draggedNode && dragInfo.newStartDate && dragInfo.newEndDate
-            ? validateTaskMove(draggedNode, dragInfo.newStartDate, dragInfo.newEndDate, flatNodes)
-            : { valid: true, errors: [] };
-          
-          // Calculate cascading updates count
-          const cascadingCount = draggedNode && dragInfo.newStartDate && dragInfo.newEndDate
-            ? calculateCascadingUpdates(draggedNode, dragInfo.newStartDate, dragInfo.newEndDate, flatNodes).size
-            : 0;
-
-          return (
-            <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg ${validation.valid ? 'bg-blue-600' : 'bg-red-600'} text-white`}>
-              <div className="text-xs font-semibold mb-1">
-                {dragMode === 'move' ? '🔄 Di chuyển task' :
-                  dragMode === 'resize-start' ? '⬅️ Thay đổi ngày bắt đầu' :
-                    '➡️ Thay đổi ngày kết thúc'}
-              </div>
-              <div className="text-sm">
-                <div>📅 {dragInfo.startDate} → {dragInfo.endDate}</div>
-                <div className="mt-1">⏱️ {dragInfo.days} ngày</div>
-                {cascadingCount > 0 && (
-                  <div className="mt-1">🔗 {cascadingCount} task(s) sẽ tự động cập nhật</div>
-                )}
-                {!validation.valid && (
-                  <div className="mt-2 pt-2 border-t border-red-400">
-                    <div className="font-semibold mb-1">⚠️ Vi phạm dependencies:</div>
-                    {validation.errors.map((err, i) => (
-                      <div key={i} className="text-xs">• {err}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
+        {draggingTask && dragInfo && dragMode && (
+          <DragInfoTooltip
+            draggingTask={draggingTask}
+            dragMode={dragMode}
+            dragInfo={dragInfo}
+            wbsNodes={wbsNodes}
+          />
+        )}
 
         {/* Header */}
-        <div className="flex border-b bg-gray-100">
-          {/* WBS Columns Headers */}
-          {columns.filter(col => col.visible).map((col) => (
-            <div key={col.id} className="relative flex items-center">
-              <div
-                className="px-4 py-3 font-semibold text-sm border-r flex items-center justify-between"
-                style={{ width: col.width }}
-                title={col.id === 'dependencies' ? 'Cú pháp: <ID><Type><Lag>. VD: 3FS, 5SS+2d, 6FF-1d' : undefined}
-              >
-                <span>{col.label}</span>
-                {col.resizable && (
-                  <div
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors group"
-                    onMouseDown={(e) => handleColumnResizeStart(e, col.id)}
-                    title="Kéo để thay đổi kích thước"
-                  >
-                    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-gray-400 group-hover:bg-blue-600 transition-colors" />
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Gantt Header */}
-          <div className="flex-1 border-l">
-            <GanttHeader
-              columns={ganttColumns}
-              columnWidth={columnWidth}
-              viewMode={viewMode}
-              projectStartDate={projectInfo.startDate}
-            />
-          </div>
-        </div>
+        <WBSTableHeader
+          columns={columns}
+          ganttColumns={ganttColumns}
+          columnWidth={columnWidth}
+          viewMode={viewMode}
+          projectStartDate={projectInfo.startDate}
+          onColumnResizeStart={handleColumnResizeStart}
+        />
 
         {/* Content */}
         <div className="flex overflow-auto" style={{ maxHeight: 600 }}>
@@ -1507,205 +1024,20 @@ export function WBSPage() {
               />
 
               {/* WBS Summary Bars & Task bars */}
-              {visibleRows.map((row, index) => {
-                const { node } = row;
-
-                // For ALL nodes with dates: show task bar
-                if (!node.plannedStartDate || !node.plannedEndDate) {
-                  return null; // Skip nodes without dates
-                }
-
-                // For Summary nodes: show summary bar (regardless of expand state)
-                if (node.type === 'Summary') {
-                  const position = getWBSPosition(node);
-                  if (!position) return null;
-
-                  const progress = getWBSProgress(node);
-                  const isHovered = hoveredTask === `wbs-${node.id}`;
-                  const isDragging = draggingTask === node.id;
-                  
-                  // Calculate preview position when dragging
-                  let displayX = position.x;
-                  let displayWidth = position.width;
-
-                  if (isDragging && dragInfo?.newStartDate && dragInfo?.newEndDate) {
-                    const daysSinceStart = Math.floor(
-                      (dragInfo.newStartDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-                    );
-                    const duration = Math.max(1, Math.ceil(
-                      (dragInfo.newEndDate.getTime() - dragInfo.newStartDate.getTime()) / (1000 * 60 * 60 * 24)
-                    ));
-
-                    displayX = Math.floor(daysSinceStart / 7) * columnWidth;
-                    displayWidth = Math.max(1, Math.ceil(duration / 7)) * columnWidth;
-                  }
-                  
-                  const tooltipContent = (
-                    <div className="text-xs">
-                      <div className="font-semibold mb-1">{node.name}</div>
-                      <div className="text-gray-400">
-                        {format(position.dateRange.startDate, 'dd/MM/yyyy', { locale: vi })} → {' '}
-                        {format(position.dateRange.endDate, 'dd/MM/yyyy', { locale: vi })}
-                      </div>
-                      <div className="mt-1">Tiến độ: {progress}%</div>
-                    </div>
-                  );
-
-                  const summaryY = index * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2;
-
-                  return (
-                    <g key={`wbs-${node.id}`}>
-                      <WBSSummaryBar
-                        x={displayX}
-                        y={summaryY}
-                        width={displayWidth}
-                        height={32}
-                        label={`${progress}%`}
-                        progress={progress}
-                        tooltipContent={tooltipContent}
-                        isHovered={isHovered}
-                        onMouseEnter={() => setHoveredTask(`wbs-${node.id}`)}
-                        onMouseLeave={() => setHoveredTask(null)}
-                        onDoubleClick={() => setEditingNode(node)}
-                        onStartDrag={(e) => handleTaskMouseDown(e, node.id, 'resize-start')}
-                        onEndDrag={(e) => handleTaskMouseDown(e, node.id, 'resize-end')}
-                        onBarDrag={(e) => handleTaskMouseDown(e, node.id, 'move')}
-                      />
-                      
-                      {/* Dashed outline when dragging */}
-                      {isDragging && (
-                        <rect
-                          x={displayX - 2}
-                          y={summaryY - 2}
-                          width={displayWidth + 4}
-                          height={32 + 4}
-                          fill="none"
-                          stroke="#3b82f6"
-                          strokeWidth={2}
-                          strokeDasharray="4 2"
-                          pointerEvents="none"
-                        />
-                      )}
-                    </g>
-                  );
-                }
-
-                // For Task/Milestone nodes: show task bar with drag handles
-                if (node.type === 'Task' || node.type === 'Milestone') {
-                  const position = getTaskPosition(node);
-                  if (!position) return null;
-
-                  const isDragging = draggingTask === node.id;
-                  const isHovered = hoveredTask === node.id;
-                  const taskY = index * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2;
-
-                  // Calculate preview position when dragging
-                  let displayX = position.x;
-                  let displayWidth = position.width;
-
-                  if (isDragging && dragInfo?.newStartDate && dragInfo?.newEndDate) {
-                    const daysSinceStart = Math.floor(
-                      (dragInfo.newStartDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-                    );
-                    const duration = Math.max(1, Math.ceil(
-                      (dragInfo.newEndDate.getTime() - dragInfo.newStartDate.getTime()) / (1000 * 60 * 60 * 24)
-                    ));
-
-                    displayX = Math.floor(daysSinceStart / 7) * columnWidth;
-                    displayWidth = Math.max(1, Math.ceil(duration / 7)) * columnWidth;
-                  }
-
-                  return (
-                    <g key={node.id}>
-                      {/* Main task bar */}
-                      <GanttTask
-                        node={node}
-                        x={displayX}
-                        y={taskY}
-                        width={displayWidth}
-                        height={32}
-                        isHovered={isHovered}
-                        onMouseEnter={() => setHoveredTask(node.id)}
-                        onMouseLeave={() => setHoveredTask(null)}
-                        onDoubleClick={() => setEditingNode(node)}
-                      />
-
-                      {/* Dashed outline when dragging */}
-                      {isDragging && (
-                        <rect
-                          x={displayX - 2}
-                          y={taskY - 2}
-                          width={displayWidth + 4}
-                          height={32 + 4}
-                          fill="none"
-                          stroke="#3b82f6"
-                          strokeWidth={2}
-                          strokeDasharray="4 2"
-                          pointerEvents="none"
-                        />
-                      )}
-
-                      {/* Left resize handle - always visible on hover */}
-                      <rect
-                        x={displayX - 4}
-                        y={taskY + 2}
-                        width={8}
-                        height={32 - 4}
-                        fill={(isHovered || isDragging) ? "#3b82f6" : "transparent"}
-                        stroke={(isHovered || isDragging) ? "#fff" : "none"}
-                        strokeWidth={1}
-                        cursor="ew-resize"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleTaskMouseDown(e, node.id, 'resize-start');
-                        }}
-                        onMouseEnter={() => setHoveredTask(node.id)}
-                      />
-
-                      {/* Right resize handle - always visible on hover */}
-                      <rect
-                        x={displayX + displayWidth - 4}
-                        y={taskY + 2}
-                        width={8}
-                        height={32 - 4}
-                        fill={(isHovered || isDragging) ? "#3b82f6" : "transparent"}
-                        stroke={(isHovered || isDragging) ? "#fff" : "none"}
-                        strokeWidth={1}
-                        cursor="ew-resize"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleTaskMouseDown(e, node.id, 'resize-end');
-                        }}
-                        onMouseEnter={() => setHoveredTask(node.id)}
-                      />
-
-                      {/* Center drag area for moving - higher z-index */}
-                      <rect
-                        x={displayX + 8}
-                        y={taskY}
-                        width={Math.max(0, displayWidth - 16)}
-                        height={32}
-                        fill="transparent"
-                        cursor={isDragging ? 'grabbing' : 'grab'}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleTaskMouseDown(e, node.id, 'move');
-                        }}
-                        onMouseEnter={() => setHoveredTask(node.id)}
-                        onMouseLeave={() => {
-                          if (!isDragging) setHoveredTask(null);
-                        }}
-                      />
-                    </g>
-                  );
-                }
-
-                // For other node types (shouldn't happen), return null
-                return null;
-              })}
+              <GanttTasksRenderer
+                visibleRows={visibleRows}
+                startDate={startDate}
+                columnWidth={columnWidth}
+                draggingTask={draggingTask}
+                dragInfo={dragInfo}
+                hoveredTask={hoveredTask}
+                getTaskPosition={getTaskPosition}
+                getWBSPosition={getWBSPosition}
+                getWBSProgress={getWBSProgress}
+                onSetHoveredTask={setHoveredTask}
+                onEditNode={setEditingNode}
+                onTaskMouseDown={handleTaskMouseDown}
+              />
 
               {/* Dependency Arrows */}
               <GanttDependencyArrows
