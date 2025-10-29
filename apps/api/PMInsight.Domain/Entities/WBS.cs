@@ -106,7 +106,7 @@ public class WBSNode
 /// </summary>
 public class ActivityDependency
 {
-    public required string ActivityId { get; set; }
+    public required string NodeId { get; set; }
     public DependencyType Type { get; set; } = DependencyType.FS;
     
     /// <summary>

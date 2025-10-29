@@ -60,7 +60,7 @@ public class AddNodeDependencyCommandHandler : IRequestHandler<AddNodeDependency
         }
 
         // Check if dependency already exists
-        if (node.Predecessors.Any(p => p.ActivityId == request.PredecessorNodeId))
+        if (node.Predecessors.Any(p => p.NodeId == request.PredecessorNodeId))
         {
             throw new InvalidOperationException("Dependency already exists");
         }
@@ -74,7 +74,7 @@ public class AddNodeDependencyCommandHandler : IRequestHandler<AddNodeDependency
         // Add the dependency
         node.Predecessors.Add(new ActivityDependency
         {
-            ActivityId = request.PredecessorNodeId,
+            NodeId = request.PredecessorNodeId,
             Type = dependencyType,
             LagDays = request.LagDays
         });
@@ -82,7 +82,7 @@ public class AddNodeDependencyCommandHandler : IRequestHandler<AddNodeDependency
         // Also add to predecessor's successors list
         predecessorNode.Successors.Add(new ActivityDependency
         {
-            ActivityId = request.NodeId,
+            NodeId = request.NodeId,
             Type = dependencyType,
             LagDays = request.LagDays
         });
@@ -116,7 +116,7 @@ public class AddNodeDependencyCommandHandler : IRequestHandler<AddNodeDependency
 
         foreach (var pred in from.Predecessors)
         {
-            var predNode = WBSMapper.FindNodeById(tree, pred.ActivityId);
+            var predNode = WBSMapper.FindNodeById(tree, pred.NodeId);
             if (predNode != null && HasPathTo(tree, predNode, targetId, visited))
                 return true;
         }

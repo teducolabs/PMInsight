@@ -46,7 +46,7 @@ public class RemoveNodeDependencyCommandHandler : IRequestHandler<RemoveNodeDepe
         }
 
         // Find and remove the dependency
-        var dependency = node.Predecessors.FirstOrDefault(p => p.ActivityId == request.PredecessorNodeId);
+        var dependency = node.Predecessors.FirstOrDefault(p => p.NodeId == request.PredecessorNodeId);
         if (dependency == null)
         {
             throw new InvalidOperationException($"Dependency to {request.PredecessorNodeId} not found");
@@ -58,7 +58,7 @@ public class RemoveNodeDependencyCommandHandler : IRequestHandler<RemoveNodeDepe
         var predecessorNode = WBSMapper.FindNodeById(wbs.Tree, request.PredecessorNodeId);
         if (predecessorNode != null)
         {
-            var successorDep = predecessorNode.Successors.FirstOrDefault(s => s.ActivityId == request.NodeId);
+            var successorDep = predecessorNode.Successors.FirstOrDefault(s => s.NodeId == request.NodeId);
             if (successorDep != null)
             {
                 predecessorNode.Successors.Remove(successorDep);

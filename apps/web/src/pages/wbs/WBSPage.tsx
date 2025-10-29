@@ -770,19 +770,30 @@ export function WBSPage() {
   const handleSaveDependencies = async (nodeId: string, dependencies: ActivityDependency[]) => {
     if (!wbsId) return;
 
+    console.log('💾 handleSaveDependencies called:', { nodeId, dependencies });
+    console.log('💾 Dependencies to save:', JSON.stringify(dependencies, null, 2));
+
     try {
       // Update node with new predecessors via API
-      await wbsApi.updateNode(wbsId, nodeId, {
+      const updatePayload = {
         predecessors: dependencies,
-      });
+      };
+      console.log('💾 Sending update payload:', updatePayload);
+      
+      const result = await wbsApi.updateNode(wbsId, nodeId, updatePayload);
+      console.log('✅ Update successful, result:', result);
 
       // Reload WBS data
       const updatedWBS = await wbsApi.getById(wbsId);
       if (updatedWBS) {
+        console.log('✅ WBS reloaded successfully');
         setWbsNodes(updatedWBS.tree);
       }
     } catch (error) {
       console.error('❌ Failed to save dependencies:', error);
+      if (error instanceof Error) {
+        console.error('❌ Error details:', error.message);
+      }
     }
   };
 

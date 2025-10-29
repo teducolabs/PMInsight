@@ -5,14 +5,39 @@ namespace PMInsight.Application.WBS.Helpers;
 
 public static class WBSMapper
 {
+    // Helper to flatten WBS tree for lookups
+    private static Dictionary<string, WBSNode> FlattenTree(List<WBSNode> tree)
+    {
+        var dict = new Dictionary<string, WBSNode>();
+        
+        void Flatten(WBSNode node)
+        {
+            dict[node.Id] = node;
+            foreach (var child in node.Children)
+            {
+                Flatten(child);
+            }
+        }
+        
+        foreach (var node in tree)
+        {
+            Flatten(node);
+        }
+        
+        return dict;
+    }
+    
     public static WBSDto MapToDto(Domain.Entities.WBS wbs)
     {
+        // Flatten tree for dependency lookups
+        var nodeDict = FlattenTree(wbs.Tree);
+        
         return new WBSDto
         {
             Id = wbs.Id,
             ProjectId = wbs.ProjectId,
             OrganizationId = wbs.OrganizationId,
-            Tree = wbs.Tree.Select(MapNodeToDto).ToList(),
+            Tree = wbs.Tree.Select(n => MapNodeToDto(n, nodeDict)).ToList(),
             Version = wbs.Version,
             BaselineRef = wbs.BaselineRef,
             LockedBy = wbs.LockedBy,
@@ -22,7 +47,7 @@ public static class WBSMapper
         };
     }
     
-    public static WBSNodeDto MapNodeToDto(WBSNode node)
+    public static WBSNodeDto MapNodeToDto(WBSNode node, Dictionary<string, WBSNode>? nodeDict = null)
     {
         return new WBSNodeDto
         {
@@ -33,7 +58,7 @@ public static class WBSMapper
             Type = node.Type,
             Level = node.Level,
             SortOrder = node.SortOrder,
-            Children = node.Children.Select(MapNodeToDto).ToList(),
+            Children = node.Children.Select(c => MapNodeToDto(c, nodeDict)).ToList(),
             ScheduleMode = node.ScheduleMode,
             PlannedStartDate = node.PlannedStartDate,
             PlannedEndDate = node.PlannedEndDate,
@@ -45,13 +70,17 @@ public static class WBSMapper
             Status = node.Status,
             Predecessors = node.Predecessors.Select(p => new ActivityDependencyDto
             {
-                ActivityId = p.ActivityId,
+                ActivityId = p.NodeId,
+                ActivityName = nodeDict?.TryGetValue(p.NodeId, out var predNode) == true ? predNode.Name : string.Empty,
+                ActivityCode = nodeDict?.TryGetValue(p.NodeId, out var predNode2) == true ? predNode2.Code : null,
                 Type = p.Type,
                 LagDays = p.LagDays
             }).ToList(),
             Successors = node.Successors.Select(s => new ActivityDependencyDto
             {
-                ActivityId = s.ActivityId,
+                ActivityId = s.NodeId,
+                ActivityName = nodeDict?.TryGetValue(s.NodeId, out var succNode) == true ? succNode.Name : string.Empty,
+                ActivityCode = nodeDict?.TryGetValue(s.NodeId, out var succNode2) == true ? succNode2.Code : null,
                 Type = s.Type,
                 LagDays = s.LagDays
             }).ToList(),

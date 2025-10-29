@@ -172,6 +172,9 @@ export function EditWBSNodeDialog({
           scopeConstraints: formData.scopeConstraints.filter(c => c.trim() !== ''),
         }),
         
+        // Preserve predecessors (don't lose them when editing other fields!)
+        predecessors: node?.predecessors || [],
+        
         // Metadata
         notes: formData.notes || undefined,
       };

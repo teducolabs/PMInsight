@@ -56,14 +56,14 @@ public static class CriticalPathCalculator
             // Find all successors (nodes that have this node as predecessor)
             var successors = nodes.Where(n => 
                 n.Predecessors != null && 
-                n.Predecessors.Any(p => p.ActivityId == currentNode.Id)
+                n.Predecessors.Any(p => p.NodeId == currentNode.Id)
             ).ToList();
             
             foreach (var successor in successors)
             {
                 // Check if all predecessors are processed
                 var allPredecessorsProcessed = successor.Predecessors!
-                    .All(p => processedNodes.Contains(p.ActivityId));
+                    .All(p => processedNodes.Contains(p.NodeId));
                 
                 if (!allPredecessorsProcessed)
                     continue;
@@ -73,7 +73,7 @@ public static class CriticalPathCalculator
                 
                 foreach (var pred in successor.Predecessors!)
                 {
-                    if (!nodeDict.TryGetValue(pred.ActivityId, out var predNode))
+                    if (!nodeDict.TryGetValue(pred.NodeId, out var predNode))
                         continue;
                     
                     DateTime predFinish = predNode.EarlyFinish ?? predNode.PlannedEndDate ?? DateTime.Today;
@@ -122,7 +122,7 @@ public static class CriticalPathCalculator
         
         // Find nodes without successors and set their late finish
         var nodesWithSuccessors = new HashSet<string>(
-            nodes.SelectMany(n => n.Predecessors?.Select(p => p.ActivityId) ?? Enumerable.Empty<string>())
+            nodes.SelectMany(n => n.Predecessors?.Select(p => p.NodeId) ?? Enumerable.Empty<string>())
         );
         
         var endNodes = nodes.Where(n => !nodesWithSuccessors.Contains(n.Id)).ToList();
@@ -148,7 +148,7 @@ public static class CriticalPathCalculator
             
             foreach (var pred in currentNode.Predecessors)
             {
-                if (!nodeDict.TryGetValue(pred.ActivityId, out var predNode))
+                if (!nodeDict.TryGetValue(pred.NodeId, out var predNode))
                     continue;
                 
                 if (processedNodes.Contains(predNode.Id))
@@ -203,7 +203,7 @@ public static class CriticalPathCalculator
             // Free Float = minimum (Early Start of successors) - Early Finish
             var successors = nodes.Where(n => 
                 n.Predecessors != null && 
-                n.Predecessors.Any(p => p.ActivityId == node.Id)
+                n.Predecessors.Any(p => p.NodeId == node.Id)
             ).ToList();
             
             if (successors.Any())

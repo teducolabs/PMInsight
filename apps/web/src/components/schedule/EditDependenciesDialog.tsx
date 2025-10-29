@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Link } from 'lucide-react';
+import { Plus, Trash2, Link, FolderTree } from 'lucide-react';
 import type { WBSNode, ActivityDependency } from '@/types/wbs';
 import { DependencyType, flattenWBSTree } from '@/types/wbs';
 
@@ -31,17 +31,39 @@ export function EditDependenciesDialog({
   onSave,
 }: EditDependenciesDialogProps) {
   const [dependencies, setDependencies] = useState<ActivityDependency[]>([]);
+  const [includeSummaries, setIncludeSummaries] = useState(true); // Allow Summary nodes as predecessors
 
   // Get all task/milestone nodes (flatten the tree)
-  const allTaskNodes = flattenWBSTree(allNodes).filter(
-    n => (n.type === 'Task' || n.type === 'Milestone') && n.id !== node.id
-  );
+  const allFlattenedNodes = flattenWBSTree(allNodes);
+  const allTaskNodes = allFlattenedNodes.filter(n => {
+    // Exclude current node
+    if (n.id === node.id) return false;
+    
+    // Include Task/Milestone always
+    if (n.type === 'Task' || n.type === 'Milestone') return true;
+    
+    // Include Summary if option enabled
+    if (n.type === 'Summary' && includeSummaries) return true;
+    
+    return false;
+  });
 
   useEffect(() => {
     if (open && node) {
-      setDependencies(node.predecessors || []);
+      const loadedDeps = node.predecessors || [];
+      
+      // Check if loaded dependencies have valid nodeIds (for debugging)
+      loadedDeps.forEach(dep => {
+        const exists = allTaskNodes.find(n => n.id === dep.nodeId);
+        if (!exists) {
+          console.warn('⚠️ Predecessor node not found:', dep.nodeId, dep.nodeName);
+          console.warn('💡 Try enabling "Include Summary nodes" option');
+        }
+      });
+      
+      setDependencies(loadedDeps);
     }
-  }, [open, node]);
+  }, [open, node, allTaskNodes]);
 
   const addDependency = () => {
     const newDep: ActivityDependency = {
@@ -79,17 +101,23 @@ export function EditDependenciesDialog({
 
   const handleSave = () => {
     // Filter out empty dependencies
-    const validDeps = dependencies.filter(d => d.nodeId);
+    const validDeps = dependencies.filter(d => d.nodeId && d.nodeId.trim() !== '');
     onSave(node.id, validDeps);
     onOpenChange(false);
   };
 
-  // Available predecessors (exclude self and already selected)
+  // Available predecessors (exclude already selected EXCEPT current one)
   const getAvailablePredecessors = (currentIndex: number) => {
+    const currentDep = dependencies[currentIndex];
     const selectedIds = dependencies
       .map((d, i) => (i !== currentIndex ? d.nodeId : null))
-      .filter(Boolean);
-    return allTaskNodes.filter(n => !selectedIds.includes(n.id));
+      .filter(Boolean) as string[];
+    
+    // Include all task/milestone nodes, but mark already selected ones
+    return allTaskNodes.filter(n => 
+      // Include if not selected by other dependencies, OR if it's the current selection
+      !selectedIds.includes(n.id) || n.id === currentDep?.nodeId
+    );
   };
 
   return (
@@ -103,6 +131,24 @@ export function EditDependenciesDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Filter Options */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+            <input
+              type="checkbox"
+              id="include-summaries"
+              checked={includeSummaries}
+              onChange={(e) => setIncludeSummaries(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+            <Label htmlFor="include-summaries" className="text-sm cursor-pointer flex items-center gap-2">
+              <FolderTree className="w-4 h-4 text-amber-600" />
+              <span>Cho phép chọn Summary nodes làm predecessor</span>
+              <span className="text-xs text-gray-500">
+                ({includeSummaries ? `${allTaskNodes.length} nodes khả dụng` : `Chỉ Task/Milestone`})
+              </span>
+            </Label>
+          </div>
+
           {/* Current Dependencies */}
           {dependencies.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -114,28 +160,52 @@ export function EditDependenciesDialog({
             <div className="space-y-3">
               {dependencies.map((dep, index) => {
                 const predecessor = allTaskNodes.find(n => n.id === dep.nodeId);
+                const availableNodes = getAvailablePredecessors(index);
+                const currentNodeExists = availableNodes.some(n => n.id === dep.nodeId);
+                
                 return (
                   <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-gray-50">
                     {/* Predecessor Select */}
                     <div className="flex-1 space-y-2">
-                      <Label className="text-xs text-gray-600">Predecessor Task/Milestone</Label>
+                      <Label className="text-xs text-gray-600">
+                        Predecessor {includeSummaries ? 'Node' : 'Task/Milestone'}
+                      </Label>
+                      {!currentNodeExists && dep.nodeId && (
+                        <div className="text-xs text-amber-600 mb-1">
+                          ⚠️ Node "{dep.nodeName}" (ID: {dep.nodeId}) không tìm thấy trong danh sách
+                        </div>
+                      )}
                       <Select
-                        value={dep.nodeId}
+                        value={currentNodeExists ? dep.nodeId : ''}
                         onValueChange={(value) => updateDependency(index, 'nodeId', value)}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Chọn predecessor..." />
+                          <SelectValue placeholder={dep.nodeId && !currentNodeExists ? `${dep.nodeName} (không tồn tại)` : "Chọn predecessor..."} />
                         </SelectTrigger>
                         <SelectContent>
-                          {getAvailablePredecessors(index).map((n) => (
-                            <SelectItem key={n.id} value={n.id}>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs">{n.type === 'Milestone' ? '🏁' : '📋'}</span>
-                                <span className="font-mono text-xs text-gray-600">{n.code}</span>
-                                <span className="text-sm">{n.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {availableNodes.length === 0 ? (
+                            <div className="p-2 text-sm text-gray-500">
+                              {includeSummaries 
+                                ? 'Không có node nào khả dụng' 
+                                : 'Không có task/milestone nào. Thử bật "Cho phép Summary"'
+                              }
+                            </div>
+                          ) : (
+                            availableNodes.map((n) => (
+                              <SelectItem key={n.id} value={n.id}>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs">
+                                    {n.type === 'Summary' ? '📁' : n.type === 'Milestone' ? '🏁' : '📋'}
+                                  </span>
+                                  <span className="font-mono text-xs text-gray-600">{n.code}</span>
+                                  <span className="text-sm">{n.name}</span>
+                                  {n.type === 'Summary' && (
+                                    <span className="text-xs text-amber-600">(Summary)</span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                       {predecessor && (
