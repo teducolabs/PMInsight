@@ -21,8 +21,7 @@ export function GanttDependencyArrows({
   }
 
   nodes.forEach((node) => {
-    // Only task and milestone nodes can have dependencies
-    if (node.type !== 'Task' && node.type !== 'Milestone') return;
+    // All node types can have dependencies (Summary, Task, Milestone)
     if (!node.predecessors || node.predecessors.length === 0) return;
 
     const successorPos = getTaskPosition(node);
