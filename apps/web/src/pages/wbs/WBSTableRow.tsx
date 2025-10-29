@@ -69,10 +69,6 @@ export function WBSTableRow({
   const isExpanded = expandedNodes.has(node.id);
   const hasChildren = node.children && node.children.length > 0;
 
-  // Debug: Log visible columns
-  const visibleColumns = columns.filter(c => c.visible);
-  console.log('WBSTableRow - Node:', node.code, 'Visible columns:', visibleColumns.map(c => c.id));
-
   // Render a single column based on its ID
   const renderColumn = (col: ColumnConfig) => {
     if (!col.visible) return null;
@@ -367,7 +363,6 @@ export function WBSTableRow({
 
   return (
     <div
-      key={`row-${node.id}-${visibleColumns.length}`}
       className="flex border-b hover:bg-gray-50"
       style={{ height: ROW_HEIGHT }}
     >
