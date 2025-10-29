@@ -314,4 +314,102 @@ public class WBSController : ControllerBase
         var result = await _mediator.Send(command);
         return Ok(result);
     }
+
+    // ==================== RESOURCE ASSIGNMENT ENDPOINTS ====================
+
+    /// <summary>
+    /// Add a resource assignment to a WBS node
+    /// </summary>
+    [HttpPost("{wbsId}/nodes/{nodeId}/resources")]
+    [ProducesResponseType(typeof(ResourceAssignmentDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ResourceAssignmentDto>> AddResourceAssignment(
+        string wbsId,
+        string nodeId,
+        [FromBody] AddResourceAssignmentRequest request)
+    {
+        var command = new AddResourceAssignmentCommand
+        {
+            WbsId = wbsId,
+            NodeId = nodeId,
+            Request = request
+        };
+
+        var result = await _mediator.Send(command);
+        return CreatedAtAction(
+            nameof(GetWBS),
+            new { id = wbsId },
+            result);
+    }
+
+    /// <summary>
+    /// Update a resource assignment
+    /// </summary>
+    [HttpPut("{wbsId}/nodes/{nodeId}/resources/{assignmentId}")]
+    [ProducesResponseType(typeof(ResourceAssignmentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ResourceAssignmentDto>> UpdateResourceAssignment(
+        string wbsId,
+        string nodeId,
+        string assignmentId,
+        [FromBody] UpdateResourceAssignmentRequest request)
+    {
+        var command = new UpdateResourceAssignmentCommand
+        {
+            WbsId = wbsId,
+            NodeId = nodeId,
+            AssignmentId = assignmentId,
+            Request = request
+        };
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Remove a resource assignment from a WBS node
+    /// </summary>
+    [HttpDelete("{wbsId}/nodes/{nodeId}/resources/{assignmentId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> RemoveResourceAssignment(
+        string wbsId,
+        string nodeId,
+        string assignmentId)
+    {
+        var command = new RemoveResourceAssignmentCommand
+        {
+            WbsId = wbsId,
+            NodeId = nodeId,
+            AssignmentId = assignmentId
+        };
+
+        await _mediator.Send(command);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Update actual hours for a resource assignment
+    /// </summary>
+    [HttpPatch("{wbsId}/nodes/{nodeId}/resources/{assignmentId}/actual-hours")]
+    [ProducesResponseType(typeof(ResourceAssignmentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ResourceAssignmentDto>> UpdateResourceActualHours(
+        string wbsId,
+        string nodeId,
+        string assignmentId,
+        [FromBody] decimal actualHours)
+    {
+        var command = new UpdateResourceActualHoursCommand
+        {
+            WbsId = wbsId,
+            NodeId = nodeId,
+            AssignmentId = assignmentId,
+            ActualHours = actualHours
+        };
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
 }

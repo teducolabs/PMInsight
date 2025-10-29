@@ -4,6 +4,9 @@ import type {
   WBSNode,
   CreateWBSNodeRequest,
   UpdateWBSNodeRequest,
+  ResourceAssignment,
+  AddResourceAssignmentRequest,
+  UpdateResourceAssignmentRequest,
 } from '@/types/wbs';
 
 // Legacy DTO for full tree updates (kept for compatibility)
@@ -203,6 +206,75 @@ export const wbsApi = {
     const response = await apiClient.patch(
       `/wbs/${wbsId}/nodes/${nodeId}/progress`,
       data
+    );
+    return response.data;
+  },
+
+  // ============================================================================
+  // Resource Assignment Management (Phase 2)
+  // ============================================================================
+
+  /**
+   * Add a resource assignment to a node
+   */
+  addResourceAssignment: async (
+    wbsId: string,
+    nodeId: string,
+    data: AddResourceAssignmentRequest
+  ): Promise<ResourceAssignment> => {
+    const response = await apiClient.post(
+      `/wbs/${wbsId}/nodes/${nodeId}/resources`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Update a resource assignment
+   */
+  updateResourceAssignment: async (
+    wbsId: string,
+    nodeId: string,
+    assignmentId: string,
+    data: UpdateResourceAssignmentRequest
+  ): Promise<ResourceAssignment> => {
+    const response = await apiClient.put(
+      `/wbs/${wbsId}/nodes/${nodeId}/resources/${assignmentId}`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Remove a resource assignment
+   */
+  removeResourceAssignment: async (
+    wbsId: string,
+    nodeId: string,
+    assignmentId: string
+  ): Promise<void> => {
+    await apiClient.delete(
+      `/wbs/${wbsId}/nodes/${nodeId}/resources/${assignmentId}`
+    );
+  },
+
+  /**
+   * Quick update actual hours for a resource assignment
+   */
+  updateResourceActualHours: async (
+    wbsId: string,
+    nodeId: string,
+    assignmentId: string,
+    actualHours: number
+  ): Promise<ResourceAssignment> => {
+    const response = await apiClient.patch(
+      `/wbs/${wbsId}/nodes/${nodeId}/resources/${assignmentId}/actual-hours`,
+      actualHours,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     );
     return response.data;
   },

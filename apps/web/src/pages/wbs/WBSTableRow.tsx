@@ -7,6 +7,9 @@ import type { WBSNode } from '@/types/wbs';
 import { flattenWBSTree } from '@/types/wbs';
 import { parseDependencyString, dependenciesToString } from '@/lib/dependencies-parser';
 import { ROW_HEIGHT, type ColumnConfig } from './columnConfig';
+import { ResourcesColumn } from './ResourcesColumn';
+import { EffortColumn } from './EffortColumn';
+import { CostColumn } from './CostColumn';
 
 interface WBSTableRowProps {
   node: WBSNode;
@@ -24,6 +27,7 @@ interface WBSTableRowProps {
   onToggleNode: (nodeId: string) => void;
   onEditNode: (node: WBSNode) => void;
   onAddChild: (node: WBSNode) => void;
+  onEditResources: (node: WBSNode) => void;
   onSetProgressValue: (value: string) => void;
   onSetEditingProgress: (nodeId: string | null) => void;
   onProgressSave: (nodeId: string) => Promise<void>;
@@ -53,6 +57,7 @@ export function WBSTableRow({
   onToggleNode,
   onEditNode,
   onAddChild,
+  onEditResources,
   onSetProgressValue,
   onSetEditingProgress,
   onProgressSave,
@@ -352,9 +357,32 @@ export function WBSTableRow({
 
       // Hidden columns (for Phase 3)
       case 'resources':
+        return (
+          <ResourcesColumn
+            key={col.id}
+            node={node}
+            width={col.width}
+            onEditResources={onEditResources}
+          />
+        );
+
       case 'effort':
+        return (
+          <EffortColumn
+            key={col.id}
+            node={node}
+            width={col.width}
+          />
+        );
+
       case 'cost':
-        return null;
+        return (
+          <CostColumn
+            key={col.id}
+            node={node}
+            width={col.width}
+          />
+        );
 
       default:
         return null;

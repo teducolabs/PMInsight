@@ -58,12 +58,17 @@ public class WBSNode
     public List<WBSNodeDependency> Predecessors { get; set; } = new();
     public List<WBSNodeDependency> Successors { get; set; } = new();
     
-    // Resources
+    // Resources - Legacy (for backward compatibility, will be deprecated)
     public List<string> AssignedUserIds { get; set; } = new();
+    
+    // Resources - New detailed assignments
+    public List<ResourceAssignment> ResourceAssignments { get; set; } = new();
+    
+    // Effort tracking (rollup from ResourceAssignments)
     public decimal EstimatedHours { get; set; } = 0;
     public decimal ActualHours { get; set; } = 0;
     
-    // Cost tracking
+    // Cost tracking (rollup from ResourceAssignments)
     public decimal? PlannedCost { get; set; }
     public decimal? ActualCost { get; set; }
     public string? Currency { get; set; } = "VND";

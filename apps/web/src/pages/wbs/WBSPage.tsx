@@ -13,6 +13,7 @@ import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
 import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
 import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
+import { EditResourcesDialog } from '@/components/wbs/EditResourcesDialog';
 import { wbsApi } from '@/lib/api/wbs';
 import { projectApi } from '@/lib/api/project';
 import type { Project } from '@/types/project';
@@ -114,6 +115,9 @@ export function WBSPage() {
   const [creatingNode, setCreatingNode] = useState(false);
   const [parentNodeForCreate, setParentNodeForCreate] = useState<WBSNode | null>(null);
   const [editingNode, setEditingNode] = useState<WBSNode | null>(null);
+
+  // Resource management state (Phase 3)
+  const [editingResources, setEditingResources] = useState<WBSNode | null>(null);
 
   // Data loading state
   const [loading, setLoading] = useState(true);
@@ -551,12 +555,6 @@ export function WBSPage() {
     setColumns(resetColumnsToDefault());
   };
 
-  // Get active (visible) columns
-  const activeColumns = useMemo(() => 
-    columns.filter(col => col.visible),
-    [columns]
-  );
-
   // Helper to find node by ID in tree
   const findNodeById = (nodes: WBSNode[], id: string): WBSNode | null => {
     for (const node of nodes) {
@@ -910,10 +908,11 @@ export function WBSPage() {
         dependenciesErrors={dependenciesErrors}
         onToggleNode={toggleNode}
         onEditNode={setEditingNode}
-        onAddChild={(node) => {
+        onAddChild={(node: WBSNode) => {
           setParentNodeForCreate(node);
           setCreatingNode(true);
         }}
+        onEditResources={setEditingResources}
         onSetProgressValue={setProgressValue}
         onSetEditingProgress={setEditingProgress}
         onProgressSave={handleProgressSave}
@@ -969,6 +968,15 @@ export function WBSPage() {
           onSave={handleUpdateWBSNode}
         />
       )}
+
+      {/* Edit Resources Dialog (Phase 3) */}
+      <EditResourcesDialog
+        isOpen={!!editingResources}
+        onClose={() => setEditingResources(null)}
+        node={editingResources}
+        wbsId={wbsId || ''}
+        onUpdate={reloadWBS}
+      />
 
       {/* Project Info Banner */}
       <ProjectInfoBanner

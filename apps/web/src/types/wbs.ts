@@ -78,6 +78,39 @@ export interface WBSNodeBaseline {
   baselineVersion?: string;
 }
 
+// Resource Assignment (Phase 2 - Detailed resource tracking)
+export interface ResourceAssignment {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  
+  // Allocation
+  allocationPercent: number; // 0-100
+  assignmentStartDate?: string;
+  assignmentEndDate?: string;
+  
+  // Effort
+  estimatedHours: number;
+  actualHours: number;
+  
+  // Cost
+  plannedCost?: number;
+  actualCost?: number;
+  currency?: string;
+  
+  // Role
+  role?: string;
+  isPrimary: boolean;
+  
+  // Metadata
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
 // Unified WBS Node (Summary/Task/Milestone)
 export interface WBSNode {
   id: string;
@@ -106,12 +139,13 @@ export interface WBSNode {
   status: ActivityStatus;
   predecessors: WBSNodeDependency[];
   successors: WBSNodeDependency[];
-  assignedUserIds: string[];
+  assignedUserIds: string[]; // Legacy - kept for backward compatibility
   assignedUserNames?: string[];
-  estimatedHours: number;
-  actualHours: number;
-  plannedCost?: number;
-  actualCost?: number;
+  resourceAssignments: ResourceAssignment[]; // New detailed resource tracking
+  estimatedHours: number; // Rollup from resourceAssignments
+  actualHours: number; // Rollup from resourceAssignments
+  plannedCost?: number; // Rollup from resourceAssignments
+  actualCost?: number; // Rollup from resourceAssignments
   currency?: string;
   constraint?: WBSNodeConstraint;
   priority: TaskPriority;
@@ -211,6 +245,31 @@ export interface UpdateWBSNodeRequest {
   scopeConstraints?: string[];
 
   // Notes
+  notes?: string;
+}
+
+// Resource Assignment Request DTOs
+export interface AddResourceAssignmentRequest {
+  userId: string;
+  allocationPercent?: number;
+  role?: string;
+  estimatedHours?: number;
+  plannedCost?: number;
+  currency?: string;
+  isPrimary?: boolean;
+  assignmentStartDate?: string;
+  assignmentEndDate?: string;
+}
+
+export interface UpdateResourceAssignmentRequest {
+  allocationPercent?: number;
+  role?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  plannedCost?: number;
+  actualCost?: number;
+  currency?: string;
+  isPrimary?: boolean;
   notes?: string;
 }
 

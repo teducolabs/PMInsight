@@ -109,7 +109,7 @@ export const COLUMN_DEFINITIONS: readonly ColumnDefinition[] = [
     width: 200, 
     minWidth: 150, 
     maxWidth: 300, 
-    defaultVisible: false, // Hidden by default - will be shown in Phase 3
+    defaultVisible: true, // Enabled for Phase 3
     locked: false,
     resizable: true,
     description: 'Assigned resource roles'
@@ -120,7 +120,7 @@ export const COLUMN_DEFINITIONS: readonly ColumnDefinition[] = [
     width: 100, 
     minWidth: 80, 
     maxWidth: 150, 
-    defaultVisible: false, // Hidden by default - will be shown in Phase 3
+    defaultVisible: true, // Enabled for Phase 3
     locked: false,
     resizable: true,
     description: 'Work effort in hours'
@@ -131,7 +131,7 @@ export const COLUMN_DEFINITIONS: readonly ColumnDefinition[] = [
     width: 120, 
     minWidth: 100, 
     maxWidth: 200, 
-    defaultVisible: false, // Hidden by default - will be shown in Phase 3
+    defaultVisible: true, // Enabled for Phase 3
     locked: false,
     resizable: true,
     description: 'Calculated cost based on effort × rate'
