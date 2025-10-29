@@ -8,6 +8,7 @@ import {
   PLAYBOOK_TEMPLATES,
   CreateEngagementActionRequest,
   UpdateEngagementActionRequest,
+  CreateEngagementHistoryRequest,
 } from '@/types/stakeholder-engagement';
 import { stakeholderEngagementApi } from '@/lib/api/stakeholder';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,10 +19,13 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { 
   CheckCircle2, 
   Circle, 
@@ -50,6 +54,10 @@ export function StakeholderEngagementPanel({
   onOpenChange 
 }: StakeholderEngagementPanelProps) {
   const [activeTab, setActiveTab] = useState('playbook');
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<EngagementAction | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [noteSentiment, setNoteSentiment] = useState<'positive' | 'neutral' | 'negative'>('neutral');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -115,6 +123,26 @@ export function StakeholderEngagementPanel({
     },
   });
 
+  // Create history mutation
+  const createHistoryMutation = useMutation({
+    mutationFn: (data: CreateEngagementHistoryRequest) =>
+      stakeholderEngagementApi.createHistory(data),
+    onSuccess: () => {
+      if (stakeholder) {
+        queryClient.invalidateQueries({ 
+          queryKey: ['stakeholder-engagement-history', stakeholder.id] 
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tạo lịch sử',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Early return after all hooks
   if (!stakeholder) return null;
 
@@ -129,11 +157,22 @@ export function StakeholderEngagementPanel({
   const quadrant = getQuadrant(stakeholder.influence, stakeholder.interest);
   const playbook = PLAYBOOK_TEMPLATES[quadrant];
 
-  // Merge playbook templates with fetched actions
-  // If no actions exist in DB, show playbook templates as suggestions
-  const actions: EngagementAction[] = actionsData.length > 0 
-    ? actionsData 
-    : playbook.map((template, index) => ({
+  // Always show all playbook templates, merge with DB actions
+  // Create a map of existing actions by title for matching
+  const actionsByTitle = new Map(
+    actionsData.map(action => [action.title, action])
+  );
+
+  const actions: EngagementAction[] = playbook.map((template, index) => {
+    // Check if this action already exists in DB
+    const existingAction = actionsByTitle.get(template.title);
+    
+    if (existingAction) {
+      // Return the DB version
+      return existingAction;
+    } else {
+      // Return template as suggestion
+      return {
         id: `template-${index}`,
         stakeholderId: stakeholder.id,
         title: template.title,
@@ -143,48 +182,128 @@ export function StakeholderEngagementPanel({
         status: EngagementActionStatus.NotStarted,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }));
+      };
+    }
+  });
 
   const history: EngagementHistory[] = historyData;
 
-  const handleCompleteAction = (action: EngagementAction) => {
+  const handleCompleteAction = async (action: EngagementAction) => {
     if (action.id.startsWith('template-')) {
       // Create new action from template
       const index = parseInt(action.id.split('-')[1]);
       const template = playbook[index];
-      createActionMutation.mutate({
-        stakeholderId: stakeholder.id,
-        title: template.title,
-        description: template.description,
-        quadrant,
-        priority: template.priority,
-      });
+      
+      try {
+        const newAction = await createActionMutation.mutateAsync({
+          stakeholderId: stakeholder.id,
+          title: template.title,
+          description: template.description,
+          quadrant,
+          priority: template.priority,
+        });
+
+        // Create history entry for action creation
+        await createHistoryMutation.mutateAsync({
+          stakeholderId: stakeholder.id,
+          actionId: newAction.id,
+          type: 'update',
+          title: `Đã tạo action: ${template.title}`,
+          description: `Action mới được tạo từ playbook template cho quadrant ${quadrant}`,
+          outcome: 'Action đã được thêm vào danh sách theo dõi',
+          sentiment: 'neutral',
+          performedAt: new Date(),
+        });
+
+        toast({
+          title: 'Thành công',
+          description: 'Đã áp dụng action và ghi nhận lịch sử',
+        });
+      } catch (error) {
+        // Error already handled by mutation
+      }
     } else {
-      // Update existing action
-      updateActionMutation.mutate({
-        id: action.id,
-        data: {
-          status: EngagementActionStatus.Completed,
-          completedDate: new Date(),
-        },
-      });
+      // Update existing action to completed
+      try {
+        await updateActionMutation.mutateAsync({
+          id: action.id,
+          data: {
+            status: EngagementActionStatus.Completed,
+            completedDate: new Date(),
+          },
+        });
+
+        // Create history entry for action completion
+        await createHistoryMutation.mutateAsync({
+          stakeholderId: stakeholder.id,
+          actionId: action.id,
+          type: 'update',
+          title: `Đã hoàn thành: ${action.title}`,
+          description: `Action "${action.title}" đã được đánh dấu hoàn thành`,
+          outcome: 'Action completed successfully',
+          sentiment: 'positive',
+          performedAt: new Date(),
+        });
+
+        toast({
+          title: 'Hoàn thành',
+          description: 'Action đã được đánh dấu hoàn thành và ghi nhận lịch sử',
+        });
+      } catch (error) {
+        // Error already handled by mutation
+      }
     }
   };
 
-  const handleAddNote = (action: EngagementAction, notes: string) => {
+  const handleOpenNoteDialog = (action: EngagementAction) => {
     if (action.id.startsWith('template-')) {
       toast({
         title: 'Thông báo',
-        description: 'Vui lòng tạo action trước khi thêm ghi chú',
+        description: 'Vui lòng áp dụng action trước khi thêm ghi chú',
         variant: 'default',
       });
       return;
     }
     
-    updateActionMutation.mutate({
-      id: action.id,
-      data: { notes },
-    });
+    setSelectedAction(action);
+    setNoteText(action.notes || '');
+    setNoteSentiment('neutral');
+    setNoteDialogOpen(true);
+  };
+
+  const handleSaveNote = async () => {
+    if (!selectedAction) return;
+    
+    try {
+      await updateActionMutation.mutateAsync({
+        id: selectedAction.id,
+        data: { notes: noteText },
+      });
+
+      // Create history entry for note addition
+      await createHistoryMutation.mutateAsync({
+        stakeholderId: stakeholder.id,
+        actionId: selectedAction.id,
+        type: 'update',
+        title: `Đã thêm ghi chú cho: ${selectedAction.title}`,
+        description: noteText,
+        outcome: 'Ghi chú đã được cập nhật',
+        sentiment: noteSentiment,
+        performedAt: new Date(),
+      });
+
+      toast({
+        title: 'Thành công',
+        description: 'Ghi chú đã được lưu và ghi nhận lịch sử',
+      });
+
+      setNoteDialogOpen(false);
+      setSelectedAction(null);
+      setNoteText('');
+      setNoteSentiment('neutral');
+    } catch (error) {
+      // Error already handled by mutation
+    }
   };
 
   const getStatusIcon = (status: EngagementActionStatus) => {
@@ -329,13 +448,11 @@ export function StakeholderEngagementPanel({
           <TabsContent value="playbook" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">
-                {actionsData.length === 0 
-                  ? 'Gợi ý các action items dựa trên quadrant (chưa lưu vào database)'
-                  : 'Các action items được sắp xếp theo thứ tự ưu tiên'}
+                Các action items được khuyến nghị cho quadrant này
               </p>
               <Button size="sm" variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm action
+                Thêm action tùy chỉnh
               </Button>
             </div>
 
@@ -398,12 +515,7 @@ export function StakeholderEngagementPanel({
                             <Button 
                               size="sm" 
                               variant="ghost"
-                              onClick={() => {
-                                const notes = prompt('Nhập ghi chú:', action.notes || '');
-                                if (notes !== null) {
-                                  handleAddNote(action, notes);
-                                }
-                              }}
+                              onClick={() => handleOpenNoteDialog(action)}
                             >
                               Ghi chú
                             </Button>
@@ -500,6 +612,85 @@ export function StakeholderEngagementPanel({
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Note Dialog */}
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Thêm ghi chú</DialogTitle>
+            <DialogDescription>
+              Thêm ghi chú cho action: <strong>{selectedAction?.title}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="note-text">Nội dung ghi chú</Label>
+              <Textarea
+                id="note-text"
+                placeholder="Nhập ghi chú của bạn..."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                rows={5}
+                className="resize-none"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="note-sentiment">Đánh giá về tương tác</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={noteSentiment === 'positive' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setNoteSentiment('positive')}
+                  className="flex-1"
+                >
+                  😊 Tích cực
+                </Button>
+                <Button
+                  type="button"
+                  variant={noteSentiment === 'neutral' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setNoteSentiment('neutral')}
+                  className="flex-1"
+                >
+                  😐 Trung lập
+                </Button>
+                <Button
+                  type="button"
+                  variant={noteSentiment === 'negative' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setNoteSentiment('negative')}
+                  className="flex-1"
+                >
+                  😟 Tiêu cực
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNoteDialogOpen(false);
+                setSelectedAction(null);
+                setNoteText('');
+                setNoteSentiment('neutral');
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleSaveNote}
+              disabled={!noteText.trim() || updateActionMutation.isPending}
+            >
+              {updateActionMutation.isPending ? 'Đang lưu...' : 'Lưu ghi chú'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

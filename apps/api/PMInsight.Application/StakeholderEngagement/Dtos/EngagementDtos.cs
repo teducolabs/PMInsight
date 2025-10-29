@@ -63,7 +63,6 @@ public record CreateEngagementActionRequest
 
 public record UpdateEngagementActionRequest
 {
-    public required string Id { get; init; }
     public EngagementActionStatus? Status { get; init; }
     public DateTime? CompletedDate { get; init; }
     public string? Notes { get; init; }
