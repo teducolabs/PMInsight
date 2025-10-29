@@ -29,7 +29,6 @@ const navigation: NavItem[] = [
   { name: 'Dự án', href: '/projects', icon: FolderKanban },
   { name: 'Stakeholders', href: '/stakeholders', icon: Users, badge: 2 },
   { name: 'WBS & Schedule', href: '/wbs', icon: Network },
-  { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Rủi ro', href: '/risks', icon: AlertTriangle, badge: 5 },
   { name: 'Issues', href: '/issues', icon: ShieldAlert, badge: 3 },
   { name: 'Thay đổi', href: '/changes', icon: GitBranch },

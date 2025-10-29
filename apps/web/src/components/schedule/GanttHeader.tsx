@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import type { ViewMode } from './GanttChart';
+import type { ViewMode } from './types';
 
 interface GanttHeaderProps {
   columns: Date[];

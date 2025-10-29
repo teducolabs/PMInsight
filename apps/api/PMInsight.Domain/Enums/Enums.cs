@@ -135,6 +135,28 @@ public enum ConstraintType
     MFO    // Must Finish On (rigid)
 }
 
+public enum WBSNodeType
+{
+    Summary,    // Summary task (has children, auto rollup)
+    Task,       // Leaf task (executable work)
+    Milestone   // Zero-duration milestone
+}
+
+public enum ScheduleMode
+{
+    Auto,        // Dates automatically rollup from children/dependencies
+    Manual,      // User override dates
+    Fixed        // Fixed date (like milestone)
+}
+
+public enum TaskPriority
+{
+    Low = 1,
+    Medium = 2,
+    High = 3,
+    Critical = 4
+}
+
 public enum ContactType
 {
     Email,

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import type { Activity } from '@/types/activity';
+import type { WBSNode } from '@/types/wbs';
 import { GanttHeader } from './GanttHeader';
 import { GanttGrid } from './GanttGrid';
 import { GanttTask } from './GanttTask';
@@ -11,10 +11,10 @@ import { GanttTimeline } from './GanttTimeline';
 export type ViewMode = 'day' | 'week' | 'month';
 
 interface GanttChartProps {
-  activities: Activity[];
+  nodes: WBSNode[];
   viewMode?: ViewMode;
-  onActivityClick?: (activity: Activity) => void;
-  onActivityUpdate?: (activityId: string, start: Date, end: Date) => void;
+  onNodeClick?: (node: WBSNode) => void;
+  onNodeUpdate?: (nodeId: string, start: Date, end: Date) => void;
   height?: number;
 }
 
@@ -23,17 +23,36 @@ const HEADER_HEIGHT = 80;
 const TASK_BAR_HEIGHT = 32;
 
 export function GanttChart({
-  activities,
+  nodes,
   viewMode = 'week',
-  onActivityClick,
-  onActivityUpdate,
+  onNodeClick,
+  onNodeUpdate,
   height = 600,
 }: GanttChartProps) {
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
 
+  // Flatten all nodes (including nested children) for display
+  const flattenedNodes = useMemo(() => {
+    const result: WBSNode[] = [];
+    const flatten = (nodeList: WBSNode[]) => {
+      if (!nodeList || !Array.isArray(nodeList)) return;
+      nodeList.forEach(node => {
+        // Only include Task and Milestone nodes in Gantt
+        if (node.type === 'Task' || node.type === 'Milestone') {
+          result.push(node);
+        }
+        if (node.children && node.children.length > 0) {
+          flatten(node.children);
+        }
+      });
+    };
+    flatten(nodes);
+    return result;
+  }, [nodes]);
+
   // Calculate date range
   const { startDate, endDate } = useMemo(() => {
-    if (activities.length === 0) {
+    if (flattenedNodes.length === 0) {
       const today = new Date();
       return {
         startDate: startOfMonth(today),
@@ -41,10 +60,10 @@ export function GanttChart({
       };
     }
 
-    const dates = activities
-      .flatMap(a => [
-        a.plannedStartDate ? new Date(a.plannedStartDate) : null,
-        a.plannedEndDate ? new Date(a.plannedEndDate) : null,
+    const dates = flattenedNodes
+      .flatMap(n => [
+        n.plannedStartDate ? new Date(n.plannedStartDate) : null,
+        n.plannedEndDate ? new Date(n.plannedEndDate) : null,
       ])
       .filter((d): d is Date => d !== null);
 
@@ -64,7 +83,7 @@ export function GanttChart({
       startDate: startOfMonth(addDays(min, -7)),
       endDate: endOfMonth(addDays(max, 14)),
     };
-  }, [activities]);
+  }, [flattenedNodes]);
 
   // Calculate column width based on view mode
   const columnWidth = useMemo(() => {
@@ -93,13 +112,13 @@ export function GanttChart({
   const totalWidth = columns.length * columnWidth;
 
   // Calculate task positions
-  const getTaskPosition = (activity: Activity) => {
-    if (!activity.plannedStartDate || !activity.plannedEndDate) {
+  const getTaskPosition = (node: WBSNode) => {
+    if (!node.plannedStartDate || !node.plannedEndDate) {
       return null;
     }
 
-    const taskStart = new Date(activity.plannedStartDate);
-    const taskEnd = new Date(activity.plannedEndDate);
+    const taskStart = new Date(node.plannedStartDate);
+    const taskEnd = new Date(node.plannedEndDate);
 
     // Calculate X position
     const daysSinceStart = Math.floor((taskStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -148,15 +167,15 @@ export function GanttChart({
         {/* Task list sidebar with grid lines */}
         <div className="absolute left-0 top-0 w-64 bg-gray-50 border-r z-10">
           <div className="sticky top-0 bg-gray-100 px-4 py-3 font-medium text-sm border-b">
-            Công việc
+            Tasks & Milestones
           </div>
           
           {/* Horizontal lines for each row */}
           <svg
             className="absolute top-0 left-0 w-full pointer-events-none"
-            height={activities.length * ROW_HEIGHT}
+            height={flattenedNodes.length * ROW_HEIGHT}
           >
-            {activities.map((_, index) => (
+            {flattenedNodes.map((_, index) => (
               <line
                 key={index}
                 x1={0}
@@ -169,26 +188,26 @@ export function GanttChart({
             ))}
           </svg>
 
-          {activities.map((activity, index) => {
-            const startDate = activity.plannedStartDate ? new Date(activity.plannedStartDate) : null;
-            const endDate = activity.plannedEndDate ? new Date(activity.plannedEndDate) : null;
+          {flattenedNodes.map((node, index) => {
+            const startDate = node.plannedStartDate ? new Date(node.plannedStartDate) : null;
+            const endDate = node.plannedEndDate ? new Date(node.plannedEndDate) : null;
             
             return (
               <div
-                key={activity.id}
+                key={node.id}
                 className="px-4 py-3 text-sm hover:bg-gray-100 cursor-pointer relative"
                 style={{ height: ROW_HEIGHT }}
-                onClick={() => onActivityClick?.(activity)}
+                onClick={() => onNodeClick?.(node)}
               >
-                <div className="font-medium truncate">{activity.name}</div>
+                <div className="font-medium truncate">{node.name}</div>
                 <div className="text-xs text-gray-500 truncate">
-                  {activity.code || `#${index + 1}`}
+                  {node.code || `#${index + 1}`}
                 </div>
                 <div className="text-xs text-gray-400 mt-0.5">
                   {startDate && endDate ? (
                     <>
                       {format(startDate, 'dd/MM', { locale: vi })} → {format(endDate, 'dd/MM/yyyy', { locale: vi })}
-                      <span className="ml-1 text-gray-500">({activity.durationDays}d)</span>
+                      <span className="ml-1 text-gray-500">({node.durationDays}d)</span>
                     </>
                   ) : (
                     <span className="text-gray-300">Chưa có timeline</span>
@@ -204,7 +223,7 @@ export function GanttChart({
           className="ml-64"
           style={{
             width: totalWidth,
-            minHeight: activities.length * ROW_HEIGHT,
+            minHeight: flattenedNodes.length * ROW_HEIGHT,
           }}
         >
           {/* Grid */}
@@ -212,13 +231,13 @@ export function GanttChart({
             columns={columns}
             columnWidth={columnWidth}
             rowHeight={ROW_HEIGHT}
-            rowCount={activities.length}
+            rowCount={flattenedNodes.length}
           />
 
           {/* Tasks */}
           <svg
             width={totalWidth}
-            height={activities.length * ROW_HEIGHT}
+            height={flattenedNodes.length * ROW_HEIGHT}
             className="absolute top-0 left-0"
           >
             {/* Today marker */}
@@ -226,25 +245,25 @@ export function GanttChart({
               startDate={startDate}
               columnWidth={columnWidth}
               viewMode={viewMode}
-              totalHeight={activities.length * ROW_HEIGHT}
+              totalHeight={flattenedNodes.length * ROW_HEIGHT}
             />
 
             {/* Dependencies first (so they appear behind tasks) */}
-            {activities.map(activity =>
-              activity.predecessors.map(pred => {
-                const predecessorActivity = activities.find(a => a.id === pred.activityId);
-                if (!predecessorActivity) return null;
+            {flattenedNodes.map(node =>
+              (node.predecessors || []).map(pred => {
+                const predecessorNode = flattenedNodes.find(n => n.id === pred.nodeId);
+                if (!predecessorNode) return null;
 
-                const successorPos = getTaskPosition(activity);
-                const predecessorPos = getTaskPosition(predecessorActivity);
-                const successorIndex = activities.findIndex(a => a.id === activity.id);
-                const predecessorIndex = activities.findIndex(a => a.id === pred.activityId);
+                const successorPos = getTaskPosition(node);
+                const predecessorPos = getTaskPosition(predecessorNode);
+                const successorIndex = flattenedNodes.findIndex(n => n.id === node.id);
+                const predecessorIndex = flattenedNodes.findIndex(n => n.id === pred.nodeId);
 
                 if (!successorPos || !predecessorPos) return null;
 
                 return (
                   <GanttDependency
-                    key={`${pred.activityId}-${activity.id}`}
+                    key={`${pred.nodeId}-${node.id}`}
                     type={pred.type}
                     fromX={predecessorPos.x + predecessorPos.width}
                     fromY={predecessorIndex * ROW_HEIGHT + ROW_HEIGHT / 2}
@@ -256,22 +275,22 @@ export function GanttChart({
             )}
 
             {/* Task bars */}
-            {activities.map((activity, index) => {
-              const position = getTaskPosition(activity);
+            {flattenedNodes.map((node, index) => {
+              const position = getTaskPosition(node);
               if (!position) return null;
 
               return (
                 <GanttTask
-                  key={activity.id}
-                  activity={activity}
+                  key={node.id}
+                  node={node}
                   x={position.x}
                   y={index * ROW_HEIGHT + (ROW_HEIGHT - TASK_BAR_HEIGHT) / 2}
                   width={position.width}
                   height={TASK_BAR_HEIGHT}
-                  isHovered={hoveredTask === activity.id}
-                  onMouseEnter={() => setHoveredTask(activity.id)}
+                  isHovered={hoveredTask === node.id}
+                  onMouseEnter={() => setHoveredTask(node.id)}
                   onMouseLeave={() => setHoveredTask(null)}
-                  onClick={() => onActivityClick?.(activity)}
+                  onClick={() => onNodeClick?.(node)}
                 />
               );
             })}

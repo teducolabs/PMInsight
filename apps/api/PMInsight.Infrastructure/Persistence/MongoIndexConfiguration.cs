@@ -55,21 +55,21 @@ public static class MongoIndexConfiguration
             )
         });
 
-        // Schedule Activities
-        var activitiesCollection = context.GetCollection<ScheduleActivity>("ScheduleActivities");
-        await activitiesCollection.Indexes.CreateManyAsync(new[]
+        // WBS - Index on nodes within tree (activities are now part of WBS nodes)
+        var wbsCollection = context.GetCollection<WBS>("WBSs");
+        await wbsCollection.Indexes.CreateManyAsync(new[]
         {
-            new CreateIndexModel<ScheduleActivity>(
-                Builders<ScheduleActivity>.IndexKeys
+            new CreateIndexModel<WBS>(
+                Builders<WBS>.IndexKeys
                     .Ascending(x => x.OrganizationId)
-                    .Ascending(x => x.ProjectId)
-                    .Descending(x => x.CreatedAt)
+                    .Ascending(x => x.ProjectId),
+                new CreateIndexOptions { Unique = true }
             ),
-            new CreateIndexModel<ScheduleActivity>(
-                Builders<ScheduleActivity>.IndexKeys
+            new CreateIndexModel<WBS>(
+                Builders<WBS>.IndexKeys
                     .Ascending(x => x.OrganizationId)
                     .Ascending(x => x.ProjectId)
-                    .Ascending("AssignedUserIds")
+                    .Descending(x => x.Version)
             )
         });
 

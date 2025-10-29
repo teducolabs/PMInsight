@@ -80,12 +80,6 @@ builder.Services.AddScoped<IRepository<Issue>>(sp => {
     return new TenantRepository<Issue>(context, tenantContext.OrganizationId, "Issues");
 });
 
-builder.Services.AddScoped<IRepository<ScheduleActivity>>(sp => {
-    var context = sp.GetRequiredService<IMongoContext>();
-    var tenantContext = sp.GetRequiredService<ITenantContext>();
-    return new TenantRepository<ScheduleActivity>(context, tenantContext.OrganizationId, "ScheduleActivities");
-});
-
 builder.Services.AddScoped<IRepository<WBS>>(sp => {
     var context = sp.GetRequiredService<IMongoContext>();
     var tenantContext = sp.GetRequiredService<ITenantContext>();

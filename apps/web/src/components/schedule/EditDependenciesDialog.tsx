@@ -5,15 +5,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2, Link } from 'lucide-react';
-import type { Activity, ActivityDependency } from '@/types/activity';
-import { DependencyType } from '@/types/activity';
+import type { WBSNode, ActivityDependency } from '@/types/wbs';
+import { DependencyType, flattenWBSTree } from '@/types/wbs';
 
 interface EditDependenciesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  activity: Activity;
-  allActivities: Activity[];
-  onSave: (activityId: string, dependencies: ActivityDependency[]) => void;
+  node: WBSNode;
+  allNodes: WBSNode[];
+  onSave: (nodeId: string, dependencies: ActivityDependency[]) => void;
 }
 
 const DEPENDENCY_TYPES: { value: DependencyType; label: string; description: string }[] = [
@@ -26,22 +26,27 @@ const DEPENDENCY_TYPES: { value: DependencyType; label: string; description: str
 export function EditDependenciesDialog({
   open,
   onOpenChange,
-  activity,
-  allActivities,
+  node,
+  allNodes,
   onSave,
 }: EditDependenciesDialogProps) {
   const [dependencies, setDependencies] = useState<ActivityDependency[]>([]);
 
+  // Get all task/milestone nodes (flatten the tree)
+  const allTaskNodes = flattenWBSTree(allNodes).filter(
+    n => (n.type === 'Task' || n.type === 'Milestone') && n.id !== node.id
+  );
+
   useEffect(() => {
-    if (open && activity) {
-      setDependencies(activity.predecessors || []);
+    if (open && node) {
+      setDependencies(node.predecessors || []);
     }
-  }, [open, activity]);
+  }, [open, node]);
 
   const addDependency = () => {
     const newDep: ActivityDependency = {
-      activityId: '',
-      activityName: '',
+      nodeId: '',
+      nodeName: '',
       type: DependencyType.FS,
       lagDays: 0,
     };
@@ -56,13 +61,13 @@ export function EditDependenciesDialog({
     setDependencies(
       dependencies.map((dep, i) => {
         if (i === index) {
-          if (field === 'activityId') {
-            const selectedActivity = allActivities.find(a => a.id === value);
+          if (field === 'nodeId') {
+            const selectedNode = allTaskNodes.find(n => n.id === value);
             return { 
               ...dep, 
-              activityId: value,
-              activityName: selectedActivity?.name || '',
-              activityCode: selectedActivity?.code,
+              nodeId: value,
+              nodeName: selectedNode?.name || '',
+              nodeCode: selectedNode?.code,
             };
           }
           return { ...dep, [field]: value };
@@ -74,17 +79,17 @@ export function EditDependenciesDialog({
 
   const handleSave = () => {
     // Filter out empty dependencies
-    const validDeps = dependencies.filter(d => d.activityId);
-    onSave(activity.id, validDeps);
+    const validDeps = dependencies.filter(d => d.nodeId);
+    onSave(node.id, validDeps);
     onOpenChange(false);
   };
 
   // Available predecessors (exclude self and already selected)
   const getAvailablePredecessors = (currentIndex: number) => {
     const selectedIds = dependencies
-      .map((d, i) => (i !== currentIndex ? d.activityId : null))
+      .map((d, i) => (i !== currentIndex ? d.nodeId : null))
       .filter(Boolean);
-    return allActivities.filter(a => a.id !== activity.id && !selectedIds.includes(a.id));
+    return allTaskNodes.filter(n => !selectedIds.includes(n.id));
   };
 
   return (
@@ -93,7 +98,7 @@ export function EditDependenciesDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link className="w-5 h-5 text-blue-600" />
-            Quản lý Dependencies - {activity.code}: {activity.name}
+            Quản lý Dependencies - {node.code}: {node.name}
           </DialogTitle>
         </DialogHeader>
 
@@ -108,25 +113,26 @@ export function EditDependenciesDialog({
           ) : (
             <div className="space-y-3">
               {dependencies.map((dep, index) => {
-                const predecessor = allActivities.find(a => a.id === dep.activityId);
+                const predecessor = allTaskNodes.find(n => n.id === dep.nodeId);
                 return (
                   <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-gray-50">
                     {/* Predecessor Select */}
                     <div className="flex-1 space-y-2">
-                      <Label className="text-xs text-gray-600">Predecessor Activity</Label>
+                      <Label className="text-xs text-gray-600">Predecessor Task/Milestone</Label>
                       <Select
-                        value={dep.activityId}
-                        onValueChange={(value) => updateDependency(index, 'activityId', value)}
+                        value={dep.nodeId}
+                        onValueChange={(value) => updateDependency(index, 'nodeId', value)}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Chọn predecessor..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {getAvailablePredecessors(index).map((act) => (
-                            <SelectItem key={act.id} value={act.id}>
+                          {getAvailablePredecessors(index).map((n) => (
+                            <SelectItem key={n.id} value={n.id}>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs text-gray-600">{act.code}</span>
-                                <span className="text-sm">{act.name}</span>
+                                <span className="text-xs">{n.type === 'Milestone' ? '🏁' : '📋'}</span>
+                                <span className="font-mono text-xs text-gray-600">{n.code}</span>
+                                <span className="text-sm">{n.name}</span>
                               </div>
                             </SelectItem>
                           ))}
@@ -134,7 +140,10 @@ export function EditDependenciesDialog({
                       </Select>
                       {predecessor && (
                         <div className="text-xs text-gray-500">
-                          Duration: {predecessor.durationDays} ngày
+                          {predecessor.type === 'Milestone' 
+                            ? `Milestone: ${predecessor.plannedEndDate ? new Date(predecessor.plannedEndDate).toLocaleDateString('vi-VN') : 'N/A'}`
+                            : `Duration: ${predecessor.durationDays || 0} ngày`
+                          }
                         </div>
                       )}
                     </div>
@@ -197,7 +206,7 @@ export function EditDependenciesDialog({
             variant="outline"
             onClick={addDependency}
             className="w-full border-dashed"
-            disabled={dependencies.length >= allActivities.length - 1}
+            disabled={dependencies.length >= allTaskNodes.length}
           >
             <Plus className="w-4 h-4 mr-2" />
             Thêm Predecessor

@@ -1,11 +1,10 @@
-import type { Activity } from '@/types/activity';
+import type { WBSNode } from '@/types/wbs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { formatFloat } from '@/lib/utils/activityUtils';
 
 interface GanttTaskProps {
-  activity: Activity;
+  node: WBSNode;
   x: number;
   y: number;
   width: number;
@@ -17,7 +16,7 @@ interface GanttTaskProps {
 }
 
 export function GanttTask({
-  activity,
+  node,
   x,
   y,
   width,
@@ -27,23 +26,119 @@ export function GanttTask({
   onMouseLeave,
   onClick,
 }: GanttTaskProps) {
-  // Task bar color based on critical path and status
+  // Task bar color based on node type, critical path and status
   const getTaskColor = () => {
-    if (activity.status === 'Completed') {
+    // Milestone - yellow/amber
+    if (node.type === 'Milestone') {
+      return { bg: '#fbbf24', progress: '#f59e0b', border: '#d97706' };
+    }
+    
+    // Status-based colors
+    if (node.status === 'Completed') {
       return { bg: '#10b981', progress: '#059669', border: '#047857' };
     }
-    if (activity.status === 'Cancelled') {
+    if (node.status === 'Cancelled') {
       return { bg: '#6b7280', progress: '#4b5563', border: '#374151' };
     }
-    if (activity.isCritical) {
+    
+    // Critical path - red
+    if (node.isCritical) {
       return { bg: '#ef4444', progress: '#dc2626', border: '#b91c1c' };
     }
+    
+    // Default task - blue
     return { bg: '#3b82f6', progress: '#2563eb', border: '#1d4ed8' };
   };
 
   const colors = getTaskColor();
-  const progressWidth = (width * activity.percentComplete) / 100;
+  const progressWidth = (width * (node.percentComplete || 0)) / 100;
 
+  // Milestone rendering (diamond shape)
+  if (node.type === 'Milestone') {
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    const size = height * 0.8;
+    
+    return (
+      <TooltipProvider>
+        <Tooltip open={isHovered}>
+          <TooltipTrigger asChild>
+            <g
+              onMouseEnter={onMouseEnter}
+              onMouseLeave={onMouseLeave}
+              onClick={onClick}
+              style={{ cursor: 'pointer' }}
+            >
+              {/* Diamond shape for milestone */}
+              <path
+                d={`M ${centerX} ${centerY - size/2} L ${centerX + size/2} ${centerY} L ${centerX} ${centerY + size/2} L ${centerX - size/2} ${centerY} Z`}
+                fill={colors.bg}
+                stroke={colors.border}
+                strokeWidth={isHovered ? 2 : 1}
+                opacity={0.9}
+              />
+              
+              {/* Critical indicator */}
+              {node.isCritical && (
+                <circle
+                  cx={centerX}
+                  cy={centerY - size/2 - 6}
+                  r={4}
+                  fill="#ef4444"
+                  stroke="white"
+                  strokeWidth={2}
+                />
+              )}
+            </g>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-sm">
+            <div className="space-y-2">
+              <div>
+                <p className="font-semibold">🏁 {node.name}</p>
+                {node.code && (
+                  <p className="text-xs text-gray-500">{node.code}</p>
+                )}
+                <p className="text-xs text-amber-600 font-medium mt-1">Milestone</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-gray-500">Ngày đạt:</span>
+                  <p className="font-medium">
+                    {node.plannedEndDate
+                      ? format(new Date(node.plannedEndDate), 'dd/MM/yyyy', { locale: vi })
+                      : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Trạng thái:</span>
+                  <p className="font-medium">{node.status || 'Not Started'}</p>
+                </div>
+              </div>
+
+              {node.isCritical && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs font-semibold text-red-600">🔴 Critical Path</p>
+                  <div className="text-xs space-y-1 mt-1">
+                    <p>Total Float: {node.totalFloat?.toFixed(1) || 0} days</p>
+                    <p>Free Float: {node.freeFloat?.toFixed(1) || 0} days</p>
+                  </div>
+                </div>
+              )}
+
+              {node.description && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs text-gray-500">{node.description}</p>
+                </div>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // Task rendering (bar shape)
   return (
     <TooltipProvider>
       <Tooltip open={isHovered}>
@@ -52,7 +147,7 @@ export function GanttTask({
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onClick={onClick}
-            style={{ pointerEvents: 'none' }}
+            style={{ cursor: 'pointer' }}
           >
             {/* Main task bar */}
             <rect
@@ -65,11 +160,10 @@ export function GanttTask({
               strokeWidth={isHovered ? 2 : 1}
               rx={4}
               opacity={0.9}
-              style={{ pointerEvents: 'none' }}
             />
 
             {/* Progress indicator */}
-            {activity.percentComplete > 0 && (
+            {(node.percentComplete || 0) > 0 && (
               <rect
                 x={x}
                 y={y}
@@ -78,7 +172,6 @@ export function GanttTask({
                 fill={colors.progress}
                 rx={4}
                 opacity={1}
-                style={{ pointerEvents: 'none' }}
               />
             )}
 
@@ -93,14 +186,14 @@ export function GanttTask({
                 fontWeight="500"
                 className="pointer-events-none"
               >
-                {activity.name.length > 20
-                  ? `${activity.name.substring(0, 20)}...`
-                  : activity.name}
+                {node.name.length > 20
+                  ? `${node.name.substring(0, 20)}...`
+                  : node.name}
               </text>
             )}
 
             {/* Progress percentage */}
-            {width > 60 && activity.percentComplete > 0 && (
+            {width > 60 && (node.percentComplete || 0) > 0 && (
               <text
                 x={x + width - 8}
                 y={y + height / 2}
@@ -110,12 +203,12 @@ export function GanttTask({
                 textAnchor="end"
                 className="pointer-events-none"
               >
-                {activity.percentComplete}%
+                {node.percentComplete}%
               </text>
             )}
 
             {/* Critical path indicator */}
-            {activity.isCritical && (
+            {node.isCritical && (
               <circle
                 cx={x - 6}
                 cy={y + height / 2}
@@ -131,9 +224,9 @@ export function GanttTask({
         <TooltipContent side="top" className="max-w-sm">
           <div className="space-y-2">
             <div>
-              <p className="font-semibold">{activity.name}</p>
-              {activity.code && (
-                <p className="text-xs text-gray-500">{activity.code}</p>
+              <p className="font-semibold">{node.name}</p>
+              {node.code && (
+                <p className="text-xs text-gray-500">{node.code}</p>
               )}
             </div>
 
@@ -141,44 +234,44 @@ export function GanttTask({
               <div>
                 <span className="text-gray-500">Bắt đầu:</span>
                 <p className="font-medium">
-                  {activity.plannedStartDate
-                    ? format(new Date(activity.plannedStartDate), 'dd/MM/yyyy', { locale: vi })
+                  {node.plannedStartDate
+                    ? format(new Date(node.plannedStartDate), 'dd/MM/yyyy', { locale: vi })
                     : 'N/A'}
                 </p>
               </div>
               <div>
                 <span className="text-gray-500">Kết thúc:</span>
                 <p className="font-medium">
-                  {activity.plannedEndDate
-                    ? format(new Date(activity.plannedEndDate), 'dd/MM/yyyy', { locale: vi })
+                  {node.plannedEndDate
+                    ? format(new Date(node.plannedEndDate), 'dd/MM/yyyy', { locale: vi })
                     : 'N/A'}
                 </p>
               </div>
               <div>
                 <span className="text-gray-500">Tiến độ:</span>
-                <p className="font-medium">{activity.percentComplete}%</p>
+                <p className="font-medium">{node.percentComplete || 0}%</p>
               </div>
               <div>
                 <span className="text-gray-500">Thời gian:</span>
-                <p className="font-medium">{activity.durationDays} ngày</p>
+                <p className="font-medium">{node.durationDays || 0} ngày</p>
               </div>
             </div>
 
-            {activity.isCritical && (
+            {node.isCritical && (
               <div className="pt-2 border-t">
                 <p className="text-xs font-semibold text-red-600">🔴 Critical Path</p>
                 <div className="text-xs space-y-1 mt-1">
-                  <p>Total Float: {formatFloat(activity.totalFloat)}</p>
-                  <p>Free Float: {formatFloat(activity.freeFloat)}</p>
+                  <p>Total Float: {node.totalFloat?.toFixed(1) || 0} days</p>
+                  <p>Free Float: {node.freeFloat?.toFixed(1) || 0} days</p>
                 </div>
               </div>
             )}
 
-            {activity.assignedUserNames.length > 0 && (
+            {node.assignedUserNames && node.assignedUserNames.length > 0 && (
               <div className="pt-2 border-t">
                 <span className="text-xs text-gray-500">Người thực hiện:</span>
                 <p className="text-xs font-medium">
-                  {activity.assignedUserNames.join(', ')}
+                  {node.assignedUserNames.join(', ')}
                 </p>
               </div>
             )}

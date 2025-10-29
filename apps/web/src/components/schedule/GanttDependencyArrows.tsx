@@ -1,27 +1,29 @@
-import type { Activity } from '@/types/activity';
+import type { WBSNode } from '@/types/wbs';
 
 interface GanttDependencyArrowsProps {
-  activities: Activity[];
-  getTaskPosition: (activity: Activity) => { x: number; width: number; y: number } | null;
+  nodes: WBSNode[];
+  getTaskPosition: (node: WBSNode) => { x: number; width: number; y: number } | null;
   rowHeight: number;
   taskBarHeight: number;
 }
 
 export function GanttDependencyArrows({
-  activities,
+  nodes,
   getTaskPosition,
   taskBarHeight,
 }: GanttDependencyArrowsProps) {
   const arrows: JSX.Element[] = [];
 
-  activities.forEach((activity) => {
-    if (!activity.predecessors || activity.predecessors.length === 0) return;
+  nodes.forEach((node) => {
+    // Only task and milestone nodes can have dependencies
+    if (node.type !== 'Task' && node.type !== 'Milestone') return;
+    if (!node.predecessors || node.predecessors.length === 0) return;
 
-    const successorPos = getTaskPosition(activity);
+    const successorPos = getTaskPosition(node);
     if (!successorPos) return;
 
-    activity.predecessors.forEach((dep, index) => {
-      const predecessor = activities.find((a) => a.id === dep.activityId);
+    node.predecessors.forEach((dep, index) => {
+      const predecessor = nodes.find((n) => n.id === dep.nodeId);
       if (!predecessor) return;
 
       const predecessorPos = getTaskPosition(predecessor);
@@ -74,7 +76,7 @@ export function GanttDependencyArrows({
           : '#10b981' // Green for lead
         : '#6b7280'; // Gray for normal
 
-      const key = `dep-${predecessor.id}-${activity.id}-${index}`;
+      const key = `dep-${predecessor.id}-${node.id}-${index}`;
 
       arrows.push(
         <g key={key}>
