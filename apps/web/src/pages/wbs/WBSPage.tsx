@@ -15,7 +15,6 @@ import { GanttTask } from '@/components/schedule/GanttTask';
 import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
-import { EditDependenciesDialog } from '@/components/schedule/EditDependenciesDialog';
 import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
 import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
 import { wbsApi } from '@/lib/api/wbs';
@@ -28,6 +27,10 @@ import {
   validateDependencies,
   assignSequenceIds 
 } from '@/lib/dependencies-parser';
+import {
+  validateTaskMove,
+  calculateCascadingUpdates
+} from '@/lib/dependency-scheduler';
 
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -583,6 +586,32 @@ export function WBSPage() {
       const newStart = dragInfo.newStartDate;
       const newEnd = dragInfo.newEndDate;
 
+      // Find the node being dragged
+      const flatNodes = flattenWBSTree(wbsNodes);
+      const draggedNode = flatNodes.find(n => n.id === taskId);
+      
+      if (!draggedNode) {
+        setDraggingTask(null);
+        setDragMode(null);
+        setDragInfo(null);
+        return;
+      }
+
+      // Validate the move against dependencies
+      const validation = validateTaskMove(draggedNode, newStart, newEnd, flatNodes);
+      
+      if (!validation.valid) {
+        // Show error and revert
+        alert(`Không thể di chuyển task:\n\n${validation.errors.join('\n')}`);
+        setDraggingTask(null);
+        setDragMode(null);
+        setDragInfo(null);
+        return;
+      }
+
+      // Calculate cascading updates for dependent tasks
+      const cascadingUpdates = calculateCascadingUpdates(draggedNode, newStart, newEnd, flatNodes);
+
       // Optimistic update: Update local state immediately
       setWbsNodes(prevNodes => updateNodeInTree(prevNodes, taskId, {
         plannedStartDate: newStart.toISOString(),
@@ -595,21 +624,29 @@ export function WBSPage() {
       setDragInfo(null);
 
       try {
-        // Update node in backend
+        // Update main node in backend
         await wbsApi.updateNode(wbsId, taskId, {
           plannedStartDate: newStart.toISOString(),
           plannedEndDate: newEnd.toISOString(),
         });
+
+        // Apply cascading updates to dependent tasks
+        if (cascadingUpdates.size > 0) {
+          console.log(`🔄 Applying ${cascadingUpdates.size} cascading updates...`);
+          
+          for (const [nodeId, dates] of cascadingUpdates) {
+            await wbsApi.updateNode(wbsId, nodeId, dates);
+          }
+          
+          console.log('✅ Cascading updates completed');
+        }
 
         // Reload WBS data to sync with backend (in case of rollup calculations)
         await reloadWBS();
       } catch (error) {
         console.error('Failed to update node dates:', error);
         // Reload to revert optimistic update on error
-        const updatedWBS = await wbsApi.getById(wbsId);
-        if (updatedWBS) {
-          setWbsNodes(updatedWBS.tree);
-        }
+        await reloadWBS();
       }
     } else {
       // Reset drag state even if no drag was active
@@ -1353,19 +1390,44 @@ export function WBSPage() {
       </div>
       <div className="rounded-lg border bg-white overflow-hidden">
         {/* Drag info tooltip */}
-        {draggingTask && dragInfo && (
-          <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg">
-            <div className="text-xs font-semibold mb-1">
-              {dragMode === 'move' ? '🔄 Di chuyển task' :
-                dragMode === 'resize-start' ? '⬅️ Thay đổi ngày bắt đầu' :
-                  '➡️ Thay đổi ngày kết thúc'}
+        {draggingTask && dragInfo && (() => {
+          // Check validation while dragging
+          const flatNodes = flattenWBSTree(wbsNodes);
+          const draggedNode = flatNodes.find(n => n.id === draggingTask);
+          const validation = draggedNode && dragInfo.newStartDate && dragInfo.newEndDate
+            ? validateTaskMove(draggedNode, dragInfo.newStartDate, dragInfo.newEndDate, flatNodes)
+            : { valid: true, errors: [] };
+          
+          // Calculate cascading updates count
+          const cascadingCount = draggedNode && dragInfo.newStartDate && dragInfo.newEndDate
+            ? calculateCascadingUpdates(draggedNode, dragInfo.newStartDate, dragInfo.newEndDate, flatNodes).size
+            : 0;
+
+          return (
+            <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg ${validation.valid ? 'bg-blue-600' : 'bg-red-600'} text-white`}>
+              <div className="text-xs font-semibold mb-1">
+                {dragMode === 'move' ? '🔄 Di chuyển task' :
+                  dragMode === 'resize-start' ? '⬅️ Thay đổi ngày bắt đầu' :
+                    '➡️ Thay đổi ngày kết thúc'}
+              </div>
+              <div className="text-sm">
+                <div>📅 {dragInfo.startDate} → {dragInfo.endDate}</div>
+                <div className="mt-1">⏱️ {dragInfo.days} ngày</div>
+                {cascadingCount > 0 && (
+                  <div className="mt-1">🔗 {cascadingCount} task(s) sẽ tự động cập nhật</div>
+                )}
+                {!validation.valid && (
+                  <div className="mt-2 pt-2 border-t border-red-400">
+                    <div className="font-semibold mb-1">⚠️ Vi phạm dependencies:</div>
+                    {validation.errors.map((err, i) => (
+                      <div key={i} className="text-xs">• {err}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="text-sm">
-              <div>📅 {dragInfo.startDate} → {dragInfo.endDate}</div>
-              <div className="mt-1">⏱️ {dragInfo.days} ngày</div>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Header */}
         <div className="flex border-b bg-gray-100">
