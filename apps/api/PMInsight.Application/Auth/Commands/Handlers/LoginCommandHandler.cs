@@ -75,9 +75,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResult>
         var accessToken = _tokenService.GenerateAccessToken(user);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
-        // Save refresh token
+        // Update refresh token
         user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
         await _userRepository.UpdateAsync(user.Id, user, cancellationToken);
 
         return new LoginResult

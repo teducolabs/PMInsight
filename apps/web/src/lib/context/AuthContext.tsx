@@ -41,6 +41,32 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const isAuthenticated = !!user;
 
+  // Auto-refresh token periodically (every 10 minutes)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const intervalId = setInterval(async () => {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        try {
+          // Check if token is expired or about to expire
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const exp = payload.exp * 1000;
+          const timeUntilExpiry = exp - Date.now();
+          
+          // Refresh if token expires in less than 10 minutes
+          if (timeUntilExpiry < 10 * 60 * 1000) {
+            await refreshToken();
+          }
+        } catch (error) {
+          console.error('Auto-refresh failed:', error);
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated]);
+
   useEffect(() => {
     // Check if user is already logged in
     const checkAuth = async () => {

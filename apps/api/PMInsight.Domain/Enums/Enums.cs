@@ -164,3 +164,11 @@ public enum StakeholderType
     Vendor,
     Partner
 }
+
+public enum EngagementActionStatus
+{
+    NotStarted,
+    InProgress,
+    Completed,
+    Skipped
+}

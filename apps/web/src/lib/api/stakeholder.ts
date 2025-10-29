@@ -1,5 +1,12 @@
 import apiClient from './client';
 import type { Stakeholder, CreateStakeholderDto, UpdateStakeholderDto } from '@/types/stakeholder';
+import type { 
+  EngagementAction, 
+  EngagementHistory,
+  CreateEngagementHistoryRequest,
+  CreateEngagementActionRequest,
+  UpdateEngagementActionRequest
+} from '@/types/stakeholder-engagement';
 
 interface PaginatedResponse<T> {
   items: T[];
@@ -57,6 +64,36 @@ export const stakeholderApi = {
   // Get stakeholder matrix
   getMatrix: async (projectId: string): Promise<any> => {
     const response = await apiClient.get(`/stakeholders/matrix/${projectId}`);
+    return response.data;
+  },
+};
+
+// Stakeholder Engagement API
+export const stakeholderEngagementApi = {
+  // History endpoints
+  getHistory: async (stakeholderId: string): Promise<EngagementHistory[]> => {
+    const response = await apiClient.get(`/stakeholder-engagement/history/${stakeholderId}`);
+    return response.data;
+  },
+
+  createHistory: async (data: CreateEngagementHistoryRequest): Promise<EngagementHistory> => {
+    const response = await apiClient.post('/stakeholder-engagement/history', data);
+    return response.data;
+  },
+
+  // Action endpoints
+  getActions: async (stakeholderId: string): Promise<EngagementAction[]> => {
+    const response = await apiClient.get(`/stakeholder-engagement/actions/${stakeholderId}`);
+    return response.data;
+  },
+
+  createAction: async (data: CreateEngagementActionRequest): Promise<EngagementAction> => {
+    const response = await apiClient.post('/stakeholder-engagement/actions', data);
+    return response.data;
+  },
+
+  updateAction: async (id: string, data: UpdateEngagementActionRequest): Promise<EngagementAction> => {
+    const response = await apiClient.put(`/stakeholder-engagement/actions/${id}`, data);
     return response.data;
   },
 };

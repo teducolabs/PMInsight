@@ -65,7 +65,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
 
         // Generate refresh token
         user.RefreshToken = _tokenService.GenerateRefreshToken();
-        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
 
         user = await _userRepository.CreateAsync(user, cancellationToken);
 

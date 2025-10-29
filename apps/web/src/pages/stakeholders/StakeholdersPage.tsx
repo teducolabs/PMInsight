@@ -77,6 +77,13 @@ export function StakeholdersPage() {
                 <strong>Quan tâm:</strong> Mức độ quan tâm đến dự án
               </div>
             </div>
+            <div className="mt-3 p-3 bg-blue-100 rounded-lg">
+              <p className="text-sm text-blue-900">
+                💡 <strong>Engagement Playbook:</strong> Click vào stakeholder trong danh sách hoặc ma trận để xem 
+                <strong> kế hoạch tương tác</strong> với action items theo thứ tự ưu tiên, tracking trạng thái, 
+                và lịch sử phản hồi như CRM.
+              </p>
+            </div>
           </div>
         </div>
       </div>
