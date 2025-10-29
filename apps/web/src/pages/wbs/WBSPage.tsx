@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, List, Calendar, Link } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, Link, CheckSquare, Diamond, Maximize2, Minimize2 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { WBSNode } from '@/types/wbs';
@@ -58,6 +58,7 @@ export function WBSPage() {
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
   const [dragStartX, setDragStartX] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [dragMode, setDragMode] = useState<'move' | 'resize-start' | 'resize-end' | null>(null);
   const [dragInfo, setDragInfo] = useState<{
     startDate: string;
@@ -115,13 +116,6 @@ export function WBSPage() {
 
         setWbsId(wbsData.id);
         setWbsNodes(wbsData.tree || []);
-
-        // Debug: Check for nodes with dependencies
-        const flattenForDebug = (nodes: WBSNode[]): WBSNode[] => {
-          return nodes.flatMap(n => [n, ...flattenForDebug(n.children || [])]);
-        };
-        const allNodes = flattenForDebug(wbsData.tree || []);
-        const nodesWithPreds = allNodes.filter(n => n.predecessors && n.predecessors.length > 0);
 
         // Auto-expand first level
         if (wbsData.tree && wbsData.tree.length > 0) {
@@ -834,7 +828,16 @@ export function WBSPage() {
               )}
             </button>
 
-            <FolderTree className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            {/* Icon based on node type */}
+            {node.type === 'Summary' && (
+              <FolderTree className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            )}
+            {node.type === 'Task' && (
+              <CheckSquare className="w-4 h-4 text-green-600 flex-shrink-0" />
+            )}
+            {node.type === 'Milestone' && (
+              <Diamond className="w-4 h-4 text-purple-600 flex-shrink-0 fill-purple-600" />
+            )}
 
             <div className="flex items-baseline gap-2 flex-1 min-w-0">
               <span className="font-mono text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-0.5 rounded">
@@ -1048,7 +1051,7 @@ export function WBSPage() {
   }
 
   return (
-    <div className="w-full px-6 py-6 space-y-6">
+    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto p-6 space-y-6' : 'w-full px-6 py-6 space-y-6'}>
       {/* Create WBS Node Dialog (unified for Summary/Task/Milestone) */}
       <CreateWBSNodeDialog
         open={creatingNode}
@@ -1195,6 +1198,18 @@ export function WBSPage() {
               <SelectItem value="month">Tháng</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
+          </Button>
           <Button
             onClick={() => {
               setParentNodeForCreate(null);
