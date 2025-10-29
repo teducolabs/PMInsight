@@ -32,10 +32,10 @@ public record UpdateWBSNodeCommand : IRequest<WBSNodeDto>
     public decimal? ActualCost { get; init; }
     
     // Dependencies
-    public List<ActivityDependency>? Predecessors { get; init; }
+    public List<WBSNodeDependency>? Predecessors { get; init; }
     
     // Constraint
-    public ActivityConstraint? Constraint { get; init; }
+    public WBSNodeConstraint? Constraint { get; init; }
     public TaskPriority? Priority { get; init; }
     
     // Notes

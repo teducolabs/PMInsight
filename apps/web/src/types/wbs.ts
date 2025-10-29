@@ -53,8 +53,8 @@ export enum ConstraintType {
   MFO = 'MFO',   // Must Finish On (rigid)
 }
 
-// Activity Dependency
-export interface ActivityDependency {
+// WBSNode Dependency
+export default interface WBSNodeDependency {
   nodeId: string;
   nodeName?: string;
   nodeCode?: string;
@@ -62,14 +62,14 @@ export interface ActivityDependency {
   lagDays: number; // Positive = lag (delay), Negative = lead (overlap)
 }
 
-// Activity Constraint
-export interface ActivityConstraint {
+// WBSNode Constraint
+export interface WBSNodeConstraint {
   type: ConstraintType;
   constraintDate?: string;
 }
 
-// Activity Baseline
-export interface ActivityBaseline {
+// WBSNode Baseline
+export interface WBSNodeBaseline {
   startDate: string;
   endDate: string;
   durationDays: number;
@@ -84,6 +84,7 @@ export interface WBSNode {
   name: string;
   code?: string;
   description?: string;
+  sequenceId?: number; // Auto-generated 1, 2, 3... for easy reference in dependencies
 
   // Node type & hierarchy
   type: WBSNodeType;
@@ -103,8 +104,8 @@ export interface WBSNode {
 
   // Task-specific (for Task/Milestone)
   status: ActivityStatus;
-  predecessors: ActivityDependency[];
-  successors: ActivityDependency[];
+  predecessors: WBSNodeDependency[];
+  successors: WBSNodeDependency[];
   assignedUserIds: string[];
   assignedUserNames?: string[];
   estimatedHours: number;
@@ -112,7 +113,7 @@ export interface WBSNode {
   plannedCost?: number;
   actualCost?: number;
   currency?: string;
-  constraint?: ActivityConstraint;
+  constraint?: WBSNodeConstraint;
   priority: TaskPriority;
 
   // CPM (Critical Path Method)
@@ -123,7 +124,7 @@ export interface WBSNode {
   earlyFinish?: string;
   lateStart?: string;
   lateFinish?: string;
-  baseline?: ActivityBaseline;
+  baseline?: WBSNodeBaseline;
 
   // Summary-specific (for Summary)
   deliverables: string[];
@@ -196,10 +197,10 @@ export interface UpdateWBSNodeRequest {
   currency?: string;
 
   // Dependencies
-  predecessors?: ActivityDependency[];
+  predecessors?: WBSNodeDependency[];
 
   // Constraint
-  constraint?: ActivityConstraint;
+  constraint?: WBSNodeConstraint;
   priority?: TaskPriority;
 
   // Summary-specific

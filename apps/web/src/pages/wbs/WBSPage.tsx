@@ -4,12 +4,11 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, Link, CheckSquare, Diamond, Maximize2, Minimize2 } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, CheckSquare, Diamond, Maximize2, Minimize2 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { WBSNode } from '@/types/wbs';
-import type { ActivityDependency } from '@/types/wbs';
-import { flattenWBSTree } from '@/types/wbs';
+import WBSNodeDependency, { flattenWBSTree } from '@/types/wbs';
 import { GanttHeader } from '@/components/schedule/GanttHeader';
 import { GanttGrid } from '@/components/schedule/GanttGrid';
 import { GanttTask } from '@/components/schedule/GanttTask';
@@ -23,6 +22,12 @@ import { wbsApi } from '@/lib/api/wbs';
 import { projectApi } from '@/lib/api/project';
 import type { Project } from '@/types/project';
 import { ProjectStatus } from '@/types/project';
+import { 
+  parseDependencyString, 
+  dependenciesToString, 
+  validateDependencies,
+  assignSequenceIds 
+} from '@/lib/dependencies-parser';
 
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -40,10 +45,11 @@ type ColumnConfig = {
 };
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
+  { id: 'id', label: 'ID', width: 60, minWidth: 50, maxWidth: 80, visible: true, resizable: true },
   { id: 'tree', label: 'WBS/Activity', width: 400, minWidth: 250, maxWidth: 700, visible: true, resizable: true },
   { id: 'duration', label: 'Duration (days)', width: 120, minWidth: 100, maxWidth: 180, visible: true, resizable: true },
   { id: 'progress', label: 'Progress', width: 120, minWidth: 100, maxWidth: 180, visible: true, resizable: true },
-  { id: 'dependencies', label: 'Dependencies', width: 150, minWidth: 120, maxWidth: 200, visible: true, resizable: true },
+  { id: 'dependencies', label: 'Predecessors', width: 180, minWidth: 120, maxWidth: 300, visible: true, resizable: true },
   { id: 'dates', label: 'Dates', width: 180, minWidth: 150, maxWidth: 250, visible: true, resizable: true },
 ];
 
@@ -77,7 +83,12 @@ export function WBSPage() {
   const [editingDuration, setEditingDuration] = useState<string | null>(null);
   const [durationValue, setDurationValue] = useState<string>('');
 
-  // Dependencies edit state
+  // Dependencies inline edit state
+  const [editingDependenciesInline, setEditingDependenciesInline] = useState<string | null>(null);
+  const [dependenciesValue, setDependenciesValue] = useState<string>('');
+  const [dependenciesErrors, setDependenciesErrors] = useState<string[]>([]);
+
+  // Dependencies edit state (old dialog - keep for reference)
   const [editingDependencies, setEditingDependencies] = useState<WBSNode | null>(null);
 
   // Node edit state (unified for WBS and tasks)
@@ -115,7 +126,10 @@ export function WBSPage() {
         }
 
         setWbsId(wbsData.id);
-        setWbsNodes(wbsData.tree || []);
+        
+        // Auto-assign sequence IDs (1, 2, 3...) for easy reference
+        const nodesWithIds = assignSequenceIds(wbsData.tree || []);
+        setWbsNodes(nodesWithIds);
 
         // Auto-expand first level
         if (wbsData.tree && wbsData.tree.length > 0) {
@@ -131,6 +145,20 @@ export function WBSPage() {
 
     loadData();
   }, [currentProjectId]);
+
+  // Helper function to reload WBS with auto-assigned sequence IDs
+  const reloadWBS = async () => {
+    if (!wbsId) return;
+    try {
+      const updatedWBS = await wbsApi.getById(wbsId);
+      if (updatedWBS) {
+        const nodesWithIds = assignSequenceIds(updatedWBS.tree);
+        setWbsNodes(nodesWithIds);
+      }
+    } catch (error) {
+      console.error('Failed to reload WBS:', error);
+    }
+  };
 
   // Calculate project info from WBS nodes (including task nodes)
   const projectInfo = useMemo(() => {
@@ -574,10 +602,7 @@ export function WBSPage() {
         });
 
         // Reload WBS data to sync with backend (in case of rollup calculations)
-        const updatedWBS = await wbsApi.getById(wbsId);
-        if (updatedWBS) {
-          setWbsNodes(updatedWBS.tree);
-        }
+        await reloadWBS();
       } catch (error) {
         console.error('Failed to update node dates:', error);
         // Reload to revert optimistic update on error
@@ -615,10 +640,7 @@ export function WBSPage() {
       });
 
       // Reload the entire WBS tree to get fresh data
-      const updatedWBS = await wbsApi.getById(wbsId);
-      if (updatedWBS) {
-        setWbsNodes(updatedWBS.tree || []);
-      }
+      await reloadWBS();
 
       // Expand parent if creating child
       if (parentNodeForCreate) {
@@ -666,10 +688,7 @@ export function WBSPage() {
         notes: nodeData.notes,
       });
       // Reload the entire WBS tree to get fresh data
-      const updatedWBS = await wbsApi.getById(wbsId);
-      if (updatedWBS) {
-        setWbsNodes(updatedWBS.tree || []);
-      }
+      await reloadWBS();
     } catch (error) {
       console.error('❌ Failed to update WBS node:', error);
       throw error;
@@ -721,10 +740,7 @@ export function WBSPage() {
       await wbsApi.updateNodeProgress(wbsId, nodeId, clampedProgress);
       
       // Reload WBS after update
-      const updatedWBS = await wbsApi.getById(wbsId);
-      if (updatedWBS) {
-        setWbsNodes(updatedWBS.tree || []);
-      }
+      await reloadWBS();
       
       setEditingProgress(null);
     } catch (error) {
@@ -753,10 +769,7 @@ export function WBSPage() {
         });
 
         // Reload WBS after update
-        const updatedWBS = await wbsApi.getById(wbsId);
-        if (updatedWBS) {
-          setWbsNodes(updatedWBS.tree || []);
-        }
+        await reloadWBS();
       }
 
       setEditingDuration(null);
@@ -767,7 +780,7 @@ export function WBSPage() {
   };
 
   // Handle dependencies save (for Task/Milestone nodes)
-  const handleSaveDependencies = async (nodeId: string, dependencies: ActivityDependency[]) => {
+  const handleSaveDependencies = async (nodeId: string, dependencies: WBSNodeDependency[]) => {
     if (!wbsId) return;
 
     console.log('💾 handleSaveDependencies called:', { nodeId, dependencies });
@@ -784,11 +797,8 @@ export function WBSPage() {
       console.log('✅ Update successful, result:', result);
 
       // Reload WBS data
-      const updatedWBS = await wbsApi.getById(wbsId);
-      if (updatedWBS) {
-        console.log('✅ WBS reloaded successfully');
-        setWbsNodes(updatedWBS.tree);
-      }
+      await reloadWBS();
+      console.log('✅ WBS reloaded successfully');
     } catch (error) {
       console.error('❌ Failed to save dependencies:', error);
       if (error instanceof Error) {
@@ -798,6 +808,7 @@ export function WBSPage() {
   };
 
   const renderRow = (row: RowItem) => {
+    const idColumn = columns.find(c => c.id === 'id');
     const treeColumn = columns.find(c => c.id === 'tree');
     const durationColumn = columns.find(c => c.id === 'duration');
     const progressColumn = columns.find(c => c.id === 'progress');
@@ -815,6 +826,18 @@ export function WBSPage() {
         className="flex border-b hover:bg-gray-50"
         style={{ height: ROW_HEIGHT }}
       >
+        {/* ID Column */}
+        {idColumn?.visible && (
+          <div
+            className="flex items-center justify-center py-2 px-2 border-r bg-gray-50"
+            style={{ width: idColumn.width }}
+          >
+            <span className="text-sm font-mono font-semibold text-blue-600">
+              {node.sequenceId || '-'}
+            </span>
+          </div>
+        )}
+
         {/* Tree Column */}
         {treeColumn?.visible && (
           <div
@@ -995,29 +1018,94 @@ export function WBSPage() {
         {/* Dependencies Column */}
         {dependenciesColumn?.visible && (
           <div 
-            className="flex items-center justify-center py-2 px-2 border-r" 
+            className="flex items-center py-2 px-2 border-r relative group" 
             style={{ width: dependenciesColumn.width }}
           >
-            {node.predecessors && node.predecessors.length > 0 ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditingDependencies(node)}
-                className="h-7 px-2 text-xs"
-              >
-                <Link className="w-3 h-3 mr-1" />
-                {node.predecessors.length} dep(s)
-              </Button>
+            {editingDependenciesInline === node.id ? (
+              <div className="w-full">
+                <Input
+                  type="text"
+                  value={dependenciesValue}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setDependenciesValue(value);
+                    
+                    // Parse and validate in real-time
+                    const allNodesFlat = flattenWBSTree(wbsNodes);
+                    const { errors } = parseDependencyString(value, allNodesFlat);
+                    setDependenciesErrors(errors);
+                  }}
+                  onBlur={async () => {
+                    if (!wbsId) return;
+                    
+                    try {
+                      const allNodesFlat = flattenWBSTree(wbsNodes);
+                      const { dependencies, errors } = parseDependencyString(dependenciesValue, allNodesFlat);
+                      
+                      if (errors.length === 0) {
+                        // Validate logic
+                        const warnings = validateDependencies(node.id, dependencies, allNodesFlat);
+                        if (warnings.length > 0) {
+                          console.warn('Dependency warnings:', warnings);
+                          // You can show warnings to user here
+                        }
+                        
+                        // Save to API
+                        await wbsApi.updateNode(wbsId, node.id, { predecessors: dependencies });
+                        
+                        // Reload data
+                        await reloadWBS();
+                      } else {
+                        console.error('Parse errors:', errors);
+                        alert(`Lỗi cú pháp:\n${errors.join('\n')}`);
+                      }
+                    } catch (error) {
+                      console.error('Failed to update dependencies:', error);
+                    } finally {
+                      setEditingDependenciesInline(null);
+                      setDependenciesErrors([]);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    } else if (e.key === 'Escape') {
+                      setEditingDependenciesInline(null);
+                      setDependenciesErrors([]);
+                    }
+                  }}
+                  className={`h-7 px-2 text-xs font-mono ${dependenciesErrors.length > 0 ? 'border-red-500' : ''}`}
+                  placeholder="3FS, 5SS+2d"
+                  autoFocus
+                />
+                {dependenciesErrors.length > 0 && (
+                  <div className="absolute z-10 top-full left-0 mt-1 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600 shadow-lg whitespace-nowrap">
+                    {dependenciesErrors.map((err, i) => (
+                      <div key={i}>• {err}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditingDependencies(node)}
-                className="h-7 px-2 text-xs text-gray-400"
+              <div
+                onClick={() => {
+                  const allNodesFlat = flattenWBSTree(wbsNodes);
+                  const depsString = dependenciesToString(node.predecessors || [], allNodesFlat);
+                  setDependenciesValue(depsString);
+                  setEditingDependenciesInline(node.id);
+                  setDependenciesErrors([]);
+                }}
+                className="w-full h-full flex items-center cursor-pointer hover:bg-blue-50 px-2 rounded"
+                title="Click để chỉnh sửa. Ví dụ: 3FS, 5SS+2d"
               >
-                <Link className="w-3 h-3 mr-1" />
-                Add
-              </Button>
+                {node.predecessors && node.predecessors.length > 0 ? (
+                  <span className="text-xs font-mono text-blue-600">
+                    {dependenciesToString(node.predecessors, flattenWBSTree(wbsNodes))}
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400">-</span>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -1190,6 +1278,37 @@ export function WBSPage() {
         </div>
       </div>
 
+      {/* Dependencies Help Card */}
+      <div className="rounded-lg border bg-gradient-to-r from-amber-50 to-yellow-50 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold">
+            i
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-amber-900 mb-2">💡 Hướng dẫn nhập Dependencies (Predecessors)</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-amber-800 mb-2"><strong>Cú pháp:</strong> <code className="bg-white px-2 py-0.5 rounded font-mono">&lt;ID&gt;&lt;Type&gt;&lt;Lag&gt;</code></p>
+                <ul className="space-y-1 text-amber-700">
+                  <li>• <strong>ID:</strong> Số thứ tự task (cột ID bên trái)</li>
+                  <li>• <strong>Type:</strong> FS (Finish-Start), SS (Start-Start), FF (Finish-Finish), SF (hiếm dùng)</li>
+                  <li>• <strong>Lag:</strong> +2d (trì hoãn 2 ngày), -1d (sớm hơn 1 ngày), không ghi = 0</li>
+                </ul>
+              </div>
+              <div>
+                <p className="text-amber-800 mb-2"><strong>Ví dụ:</strong></p>
+                <ul className="space-y-1 text-amber-700 font-mono text-xs">
+                  <li>• <code className="bg-white px-2 py-0.5 rounded">3FS</code> → Bắt đầu sau khi task 3 hoàn thành</li>
+                  <li>• <code className="bg-white px-2 py-0.5 rounded">4FS+2d</code> → Bắt đầu 2 ngày sau khi task 4 xong</li>
+                  <li>• <code className="bg-white px-2 py-0.5 rounded">5SS</code> → Bắt đầu cùng lúc với task 5</li>
+                  <li>• <code className="bg-white px-2 py-0.5 rounded">3FS,5SS+1d</code> → Nhiều predecessors (phân cách bằng dấu phẩy)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -1256,6 +1375,7 @@ export function WBSPage() {
               <div
                 className="px-4 py-3 font-semibold text-sm border-r flex items-center justify-between"
                 style={{ width: col.width }}
+                title={col.id === 'dependencies' ? 'Cú pháp: <ID><Type><Lag>. VD: 3FS, 5SS+2d, 6FF-1d' : undefined}
               >
                 <span>{col.label}</span>
                 {col.resizable && (

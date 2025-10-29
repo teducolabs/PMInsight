@@ -45,8 +45,8 @@ public record WBSNodeDto
     
     // Task-specific
     public ActivityStatus Status { get; init; }
-    public List<ActivityDependencyDto> Predecessors { get; init; } = new();
-    public List<ActivityDependencyDto> Successors { get; init; } = new();
+    public List<WBSNodeDependencyDto> Predecessors { get; init; } = new();
+    public List<WBSNodeDependencyDto> Successors { get; init; } = new();
     public List<string> AssignedUserIds { get; init; } = new();
     public List<string> AssignedUserNames { get; init; } = new();
     public decimal EstimatedHours { get; init; }
@@ -54,7 +54,7 @@ public record WBSNodeDto
     public decimal? PlannedCost { get; init; }
     public decimal? ActualCost { get; init; }
     public string? Currency { get; init; }
-    public ActivityConstraintDto? Constraint { get; init; }
+    public WBSNodeConstraintDto? Constraint { get; init; }
     public TaskPriority Priority { get; init; }
     
     // CPM
@@ -65,7 +65,7 @@ public record WBSNodeDto
     public DateTime? EarlyFinish { get; init; }
     public DateTime? LateStart { get; init; }
     public DateTime? LateFinish { get; init; }
-    public ActivityBaselineDto? Baseline { get; init; }
+    public WBSNodeBaselineDto? Baseline { get; init; }
     
     // Summary-specific
     public List<string> Deliverables { get; init; } = new();
@@ -80,22 +80,22 @@ public record WBSNodeDto
     public List<string> Tags { get; init; } = new();
 }
 
-public record ActivityDependencyDto
+public record WBSNodeDependencyDto
 {
-    public string ActivityId { get; init; } = string.Empty;
-    public string ActivityName { get; init; } = string.Empty;
-    public string? ActivityCode { get; init; }
+    public string NodeId { get; init; } = string.Empty;
+    public string NodeName { get; init; } = string.Empty;
+    public string? NodeCode { get; init; }
     public DependencyType Type { get; init; }
     public int LagDays { get; init; }
 }
 
-public record ActivityConstraintDto
+public record WBSNodeConstraintDto
 {
     public ConstraintType Type { get; init; }
     public DateTime? ConstraintDate { get; init; }
 }
 
-public record ActivityBaselineDto
+public record WBSNodeBaselineDto
 {
     public DateTime StartDate { get; init; }
     public DateTime EndDate { get; init; }
@@ -149,10 +149,10 @@ public record UpdateWBSNodeRequest
     public decimal? ActualCost { get; init; }
     
     // Dependencies
-    public List<ActivityDependency>? Predecessors { get; init; }
+    public List<WBSNodeDependency>? Predecessors { get; init; }
     
     // Constraint
-    public ActivityConstraint? Constraint { get; init; }
+    public WBSNodeConstraint? Constraint { get; init; }
     public TaskPriority? Priority { get; init; }
     
     // Notes

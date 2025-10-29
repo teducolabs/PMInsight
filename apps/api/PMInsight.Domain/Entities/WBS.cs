@@ -55,8 +55,8 @@ public class WBSNode
     public ActivityStatus Status { get; set; } = ActivityStatus.NotStarted;
     
     // Dependencies
-    public List<ActivityDependency> Predecessors { get; set; } = new();
-    public List<ActivityDependency> Successors { get; set; } = new();
+    public List<WBSNodeDependency> Predecessors { get; set; } = new();
+    public List<WBSNodeDependency> Successors { get; set; } = new();
     
     // Resources
     public List<string> AssignedUserIds { get; set; } = new();
@@ -69,7 +69,7 @@ public class WBSNode
     public string? Currency { get; set; } = "VND";
     
     // Schedule constraints
-    public ActivityConstraint? Constraint { get; set; }
+    public WBSNodeConstraint? Constraint { get; set; }
     public TaskPriority Priority { get; set; } = TaskPriority.Medium;
     
     // Critical Path Method (CPM) calculations
@@ -82,7 +82,7 @@ public class WBSNode
     public DateTime? LateFinish { get; set; }
     
     // Baseline (for performance measurement)
-    public ActivityBaseline? Baseline { get; set; }
+    public WBSNodeBaseline? Baseline { get; set; }
     
     // ===== SUMMARY-SPECIFIC (Type = Summary) =====
     public List<string> Deliverables { get; set; } = new();
@@ -95,16 +95,12 @@ public class WBSNode
     // ===== METADATA =====
     public string? Notes { get; set; }
     public List<string> Tags { get; set; } = new();
-    
-    // Backward compatibility
-    [Obsolete("Use Type != WBSNodeType.Summary instead")]
-    public bool IsWorkPackage => Type != WBSNodeType.Summary;
 }
 
 /// <summary>
 /// Activity Dependency - represents relationship between two activities
 /// </summary>
-public class ActivityDependency
+public class WBSNodeDependency
 {
     public required string NodeId { get; set; }
     public DependencyType Type { get; set; } = DependencyType.FS;
@@ -118,16 +114,16 @@ public class ActivityDependency
 /// <summary>
 /// Schedule Constraint - limits when activity can be scheduled
 /// </summary>
-public class ActivityConstraint
+public class WBSNodeConstraint
 {
     public ConstraintType Type { get; set; } = ConstraintType.ASAP;
     public DateTime? ConstraintDate { get; set; }
 }
 
 /// <summary>
-/// Activity Baseline - snapshot of planned schedule for performance measurement
+/// WBSNode Baseline - snapshot of planned schedule for performance measurement
 /// </summary>
-public class ActivityBaseline
+public class WBSNodeBaseline
 {
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }

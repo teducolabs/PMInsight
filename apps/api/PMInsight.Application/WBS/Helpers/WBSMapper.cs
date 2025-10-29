@@ -68,19 +68,19 @@ public static class WBSMapper
             ActualDurationDays = node.ActualDurationDays,
             PercentComplete = node.PercentComplete,
             Status = node.Status,
-            Predecessors = node.Predecessors.Select(p => new ActivityDependencyDto
+            Predecessors = node.Predecessors.Select(p => new WBSNodeDependencyDto
             {
-                ActivityId = p.NodeId,
-                ActivityName = nodeDict?.TryGetValue(p.NodeId, out var predNode) == true ? predNode.Name : string.Empty,
-                ActivityCode = nodeDict?.TryGetValue(p.NodeId, out var predNode2) == true ? predNode2.Code : null,
+                NodeId = p.NodeId,
+                NodeName = nodeDict?.TryGetValue(p.NodeId, out var predNode) == true ? predNode.Name : string.Empty,
+                NodeCode = nodeDict?.TryGetValue(p.NodeId, out var predNode2) == true ? predNode2.Code : null,
                 Type = p.Type,
                 LagDays = p.LagDays
             }).ToList(),
-            Successors = node.Successors.Select(s => new ActivityDependencyDto
+            Successors = node.Successors.Select(s => new WBSNodeDependencyDto
             {
-                ActivityId = s.NodeId,
-                ActivityName = nodeDict?.TryGetValue(s.NodeId, out var succNode) == true ? succNode.Name : string.Empty,
-                ActivityCode = nodeDict?.TryGetValue(s.NodeId, out var succNode2) == true ? succNode2.Code : null,
+                NodeId = s.NodeId,
+                NodeName = nodeDict?.TryGetValue(s.NodeId, out var succNode) == true ? succNode.Name : string.Empty,
+                NodeCode = nodeDict?.TryGetValue(s.NodeId, out var succNode2) == true ? succNode2.Code : null,
                 Type = s.Type,
                 LagDays = s.LagDays
             }).ToList(),
@@ -90,7 +90,7 @@ public static class WBSMapper
             PlannedCost = node.PlannedCost,
             ActualCost = node.ActualCost,
             Currency = node.Currency,
-            Constraint = node.Constraint != null ? new ActivityConstraintDto
+            Constraint = node.Constraint != null ? new WBSNodeConstraintDto
             {
                 Type = node.Constraint.Type,
                 ConstraintDate = node.Constraint.ConstraintDate
@@ -103,7 +103,7 @@ public static class WBSMapper
             EarlyFinish = node.EarlyFinish,
             LateStart = node.LateStart,
             LateFinish = node.LateFinish,
-            Baseline = node.Baseline != null ? new ActivityBaselineDto
+            Baseline = node.Baseline != null ? new WBSNodeBaselineDto
             {
                 StartDate = node.Baseline.StartDate,
                 EndDate = node.Baseline.EndDate,

@@ -72,7 +72,7 @@ public class AddNodeDependencyCommandHandler : IRequestHandler<AddNodeDependency
         }
 
         // Add the dependency
-        node.Predecessors.Add(new ActivityDependency
+        node.Predecessors.Add(new WBSNodeDependency
         {
             NodeId = request.PredecessorNodeId,
             Type = dependencyType,
@@ -80,7 +80,7 @@ public class AddNodeDependencyCommandHandler : IRequestHandler<AddNodeDependency
         });
 
         // Also add to predecessor's successors list
-        predecessorNode.Successors.Add(new ActivityDependency
+        predecessorNode.Successors.Add(new WBSNodeDependency
         {
             NodeId = request.NodeId,
             Type = dependencyType,
