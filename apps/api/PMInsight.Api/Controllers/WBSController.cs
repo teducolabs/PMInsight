@@ -209,6 +209,7 @@ public class WBSController : ControllerBase
             Constraint = request.Constraint,
             Priority = request.Priority,
             Notes = request.Notes,
+            Type = request.Type
         };
 
         var result = await _mediator.Send(command);

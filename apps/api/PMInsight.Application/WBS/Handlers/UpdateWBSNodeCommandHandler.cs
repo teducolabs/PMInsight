@@ -62,6 +62,7 @@ public class UpdateWBSNodeCommandHandler : IRequestHandler<UpdateWBSNodeCommand,
         if (request.Constraint != null) node.Constraint = request.Constraint;
         if (request.Priority.HasValue) node.Priority = request.Priority.Value;
         if (request.Notes != null) node.Notes = request.Notes;
+        if (request.Type != null) node.Type = request.Type;
 
         wbs.Version++;
         await _wbsRepository.UpdateAsync(wbs.Id, wbs, cancellationToken);

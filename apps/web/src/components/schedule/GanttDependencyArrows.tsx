@@ -14,20 +14,35 @@ export function GanttDependencyArrows({
 }: GanttDependencyArrowsProps) {
   const arrows: JSX.Element[] = [];
 
+  // Debug: Log nodes with predecessors
+  const nodesWithDeps = nodes.filter(n => n.predecessors && n.predecessors.length > 0);
+  if (nodesWithDeps.length > 0) {
+    console.log('🔗 Nodes with dependencies:', nodesWithDeps.map(n => ({ id: n.id, name: n.name, predecessors: n.predecessors })));
+  }
+
   nodes.forEach((node) => {
     // Only task and milestone nodes can have dependencies
     if (node.type !== 'Task' && node.type !== 'Milestone') return;
     if (!node.predecessors || node.predecessors.length === 0) return;
 
     const successorPos = getTaskPosition(node);
-    if (!successorPos) return;
+    if (!successorPos) {
+      console.log('⚠️ No position found for successor:', node.name);
+      return;
+    }
 
     node.predecessors.forEach((dep, index) => {
       const predecessor = nodes.find((n) => n.id === dep.nodeId);
-      if (!predecessor) return;
+      if (!predecessor) {
+        console.log('⚠️ Predecessor not found:', dep.nodeId);
+        return;
+      }
 
       const predecessorPos = getTaskPosition(predecessor);
-      if (!predecessorPos) return;
+      if (!predecessorPos) {
+        console.log('⚠️ No position found for predecessor:', predecessor.name);
+        return;
+      }
 
       // Calculate connection points based on dependency type
       let startX: number, startY: number, endX: number, endY: number;

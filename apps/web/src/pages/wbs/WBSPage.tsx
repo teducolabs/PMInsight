@@ -4,7 +4,6 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, ChevronRight, ChevronDown, FolderTree, TrendingUp, Loader2, Pencil, List, Calendar, Link } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -17,7 +16,6 @@ import { GanttTask } from '@/components/schedule/GanttTask';
 import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
-import { GanttChart } from '@/components/schedule/GanttChart';
 import { EditDependenciesDialog } from '@/components/schedule/EditDependenciesDialog';
 import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
 import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
@@ -30,8 +28,6 @@ import { ProjectStatus } from '@/types/project';
 type ViewMode = 'day' | 'week' | 'month';
 
 const ROW_HEIGHT = 50;
-const TASK_BAR_HEIGHT = 32;
-
 // Column configuration
 type ColumnConfig = {
   id: string;
@@ -45,14 +41,14 @@ type ColumnConfig = {
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'tree', label: 'WBS/Activity', width: 400, minWidth: 250, maxWidth: 700, visible: true, resizable: true },
+  { id: 'duration', label: 'Duration (days)', width: 120, minWidth: 100, maxWidth: 180, visible: true, resizable: true },
   { id: 'progress', label: 'Progress', width: 120, minWidth: 100, maxWidth: 180, visible: true, resizable: true },
   { id: 'dependencies', label: 'Dependencies', width: 150, minWidth: 120, maxWidth: 200, visible: true, resizable: true },
-  { id: 'dates', label: 'Dates', width: 250, minWidth: 220, maxWidth: 350, visible: true, resizable: true },
+  { id: 'dates', label: 'Dates', width: 180, minWidth: 150, maxWidth: 250, visible: true, resizable: true },
 ];
 
 export function WBSPage() {
   const { currentProjectId } = useProject();
-  const [activeTab, setActiveTab] = useState<'tree' | 'gantt'>('tree');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [columns, setColumns] = useState<ColumnConfig[]>(DEFAULT_COLUMNS);
@@ -75,6 +71,10 @@ export function WBSPage() {
   // Progress edit state
   const [editingProgress, setEditingProgress] = useState<string | null>(null);
   const [progressValue, setProgressValue] = useState<string>('');
+  
+  // Duration edit state
+  const [editingDuration, setEditingDuration] = useState<string | null>(null);
+  const [durationValue, setDurationValue] = useState<string>('');
 
   // Dependencies edit state
   const [editingDependencies, setEditingDependencies] = useState<WBSNode | null>(null);
@@ -510,7 +510,7 @@ export function WBSPage() {
     e.preventDefault();
 
     const node = findNodeById(wbsNodes, nodeId);
-    if (!node || node.type === 'Summary') return; // Only allow drag for Task/Milestone
+    if (!node) return; // Allow drag for all node types
 
     console.log(`🖱️ MouseDown: ${mode} on ${node.name}`);
 
@@ -564,14 +564,30 @@ export function WBSPage() {
     if (draggingTask && dragMode && dragInfo && dragInfo.newStartDate && dragInfo.newEndDate && wbsId) {
       console.log('✅ Drag completed for', draggingTask);
 
+      // Save task ID before clearing state
+      const taskId = draggingTask;
+      const newStart = dragInfo.newStartDate;
+      const newEnd = dragInfo.newEndDate;
+
+      // Optimistic update: Update local state immediately
+      setWbsNodes(prevNodes => updateNodeInTree(prevNodes, taskId, {
+        plannedStartDate: newStart.toISOString(),
+        plannedEndDate: newEnd.toISOString(),
+      }));
+
+      // Reset drag state IMMEDIATELY to prevent flickering
+      setDraggingTask(null);
+      setDragMode(null);
+      setDragInfo(null);
+
       try {
         // Update node in backend
-        await wbsApi.updateNode(wbsId, draggingTask, {
-          plannedStartDate: dragInfo.newStartDate.toISOString(),
-          plannedEndDate: dragInfo.newEndDate.toISOString(),
+        await wbsApi.updateNode(wbsId, taskId, {
+          plannedStartDate: newStart.toISOString(),
+          plannedEndDate: newEnd.toISOString(),
         });
 
-        // Reload WBS data
+        // Reload WBS data to sync with backend (in case of rollup calculations)
         const updatedWBS = await wbsApi.getById(wbsId);
         if (updatedWBS) {
           setWbsNodes(updatedWBS.tree);
@@ -580,13 +596,18 @@ export function WBSPage() {
         console.log('✅ Updated node dates via API');
       } catch (error) {
         console.error('Failed to update node dates:', error);
+        // Reload to revert optimistic update on error
+        const updatedWBS = await wbsApi.getById(wbsId);
+        if (updatedWBS) {
+          setWbsNodes(updatedWBS.tree);
+        }
       }
+    } else {
+      // Reset drag state even if no drag was active
+      setDraggingTask(null);
+      setDragMode(null);
+      setDragInfo(null);
     }
-
-    // Reset drag state
-    setDraggingTask(null);
-    setDragMode(null);
-    setDragInfo(null);
   };
 
   // Handle create WBS node (Summary/Task/Milestone)
@@ -739,6 +760,44 @@ export function WBSPage() {
     }
   };
 
+  // Handle duration update
+  const handleDurationSave = async (nodeId: string) => {
+    if (!wbsId || !editingDuration) return;
+
+    try {
+      const duration = parseInt(durationValue) || 0;
+      if (duration < 0) return;
+
+      console.log('💾 Updating duration for node', nodeId, 'to', duration, 'days');
+
+      // Find node to get startDate
+      const node = findNodeById(wbsNodes, nodeId);
+      if (node && node.plannedStartDate) {
+        // Calculate new endDate from startDate + duration
+        const startDate = new Date(node.plannedStartDate);
+        const endDate = addDays(startDate, duration);
+
+        await wbsApi.updateNode(wbsId, nodeId, {
+          durationDays: duration,
+          plannedEndDate: endDate.toISOString(),
+        });
+
+        // Reload WBS after update
+        const updatedWBS = await wbsApi.getById(wbsId);
+        if (updatedWBS) {
+          setWbsNodes(updatedWBS.tree || []);
+        }
+
+        console.log('✅ Updated duration for node', nodeId);
+      }
+
+      setEditingDuration(null);
+    } catch (error) {
+      console.error('❌ Failed to update duration:', error);
+      setEditingDuration(null);
+    }
+  };
+
   // Handle dependencies save (for Task/Milestone nodes)
   const handleSaveDependencies = async (nodeId: string, dependencies: ActivityDependency[]) => {
     if (!wbsId) return;
@@ -763,6 +822,7 @@ export function WBSPage() {
 
   const renderRow = (row: RowItem) => {
     const treeColumn = columns.find(c => c.id === 'tree');
+    const durationColumn = columns.find(c => c.id === 'duration');
     const progressColumn = columns.find(c => c.id === 'progress');
     const dependenciesColumn = columns.find(c => c.id === 'dependencies');
     const datesColumn = columns.find(c => c.id === 'dates');
@@ -842,6 +902,46 @@ export function WBSPage() {
 
               {/* TODO: Add Task button - will use same dialog with type selector */}
             </div>
+          </div>
+        )}
+
+        {/* Duration Column */}
+        {durationColumn?.visible && (
+          <div 
+            className="flex items-center py-2 px-4 border-r" 
+            style={{ width: durationColumn.width }}
+          >
+            {editingDuration === node.id ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min="0"
+                  value={durationValue}
+                  onChange={(e) => setDurationValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleDurationSave(node.id);
+                    } else if (e.key === 'Escape') {
+                      setEditingDuration(null);
+                    }
+                  }}
+                  onBlur={() => handleDurationSave(node.id)}
+                  className="h-7 w-20 text-sm"
+                  autoFocus
+                />
+                <span className="text-xs text-gray-500">days</span>
+              </div>
+            ) : (
+              <div 
+                className="cursor-pointer hover:bg-gray-50 px-2 py-1 rounded text-sm"
+                onClick={() => {
+                  setEditingDuration(node.id);
+                  setDurationValue(node.durationDays?.toString() || '0');
+                }}
+              >
+                {node.durationDays || 0}
+              </div>
+            )}
           </div>
         )}
 
@@ -926,22 +1026,16 @@ export function WBSPage() {
 
         {/* Dates Column */}
         {datesColumn?.visible && (
-          <div className="flex flex-col justify-center py-2 px-2 border-r" style={{ width: datesColumn.width }}>
+          <div className="flex items-center gap-2 py-2 px-3 border-r" style={{ width: datesColumn.width }}>
             {node.plannedStartDate && node.plannedEndDate ? (
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <span className="text-gray-500">Bắt đầu:</span>
-                  <span className="font-semibold">{format(new Date(node.plannedStartDate), 'dd/MM/yyyy', { locale: vi })}</span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <span className="text-gray-500">Kết thúc:</span>
-                  <span className="font-semibold">{format(new Date(node.plannedEndDate), 'dd/MM/yyyy', { locale: vi })}</span>
-                </div>
-                {node.durationDays && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <span>⏱️ {node.durationDays} ngày</span>
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-700">
+                  {format(new Date(node.plannedStartDate), 'dd/MM/yy', { locale: vi })}
+                </span>
+                <span className="text-xs text-gray-400">→</span>
+                <span className="text-xs font-medium text-gray-700">
+                  {format(new Date(node.plannedEndDate), 'dd/MM/yy', { locale: vi })}
+                </span>
               </div>
             ) : (
               <span className="text-xs text-gray-400">No dates</span>
@@ -1235,6 +1329,25 @@ export function WBSPage() {
                   if (!position) return null;
 
                   const progress = getWBSProgress(node);
+                  const isHovered = hoveredTask === `wbs-${node.id}`;
+                  const isDragging = draggingTask === node.id;
+                  
+                  // Calculate preview position when dragging
+                  let displayX = position.x;
+                  let displayWidth = position.width;
+
+                  if (isDragging && dragInfo?.newStartDate && dragInfo?.newEndDate) {
+                    const daysSinceStart = Math.floor(
+                      (dragInfo.newStartDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+                    );
+                    const duration = Math.max(1, Math.ceil(
+                      (dragInfo.newEndDate.getTime() - dragInfo.newStartDate.getTime()) / (1000 * 60 * 60 * 24)
+                    ));
+
+                    displayX = Math.floor(daysSinceStart / 7) * columnWidth;
+                    displayWidth = Math.max(1, Math.ceil(duration / 7)) * columnWidth;
+                  }
+                  
                   const tooltipContent = (
                     <div className="text-xs">
                       <div className="font-semibold mb-1">{node.name}</div>
@@ -1246,20 +1359,42 @@ export function WBSPage() {
                     </div>
                   );
 
+                  const summaryY = index * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2;
+
                   return (
-                    <WBSSummaryBar
-                      key={`wbs-${node.id}`}
-                      x={position.x}
-                      y={index * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2}
-                      width={position.width}
-                      height={32}
-                      label={`${progress}%`}
-                      progress={progress}
-                      tooltipContent={tooltipContent}
-                      onMouseEnter={() => setHoveredTask(`wbs-${node.id}`)}
-                      onMouseLeave={() => setHoveredTask(null)}
-                      onClick={() => setEditingNode(node)}
-                    />
+                    <g key={`wbs-${node.id}`}>
+                      <WBSSummaryBar
+                        x={displayX}
+                        y={summaryY}
+                        width={displayWidth}
+                        height={32}
+                        label={`${progress}%`}
+                        progress={progress}
+                        tooltipContent={tooltipContent}
+                        isHovered={isHovered}
+                        onMouseEnter={() => setHoveredTask(`wbs-${node.id}`)}
+                        onMouseLeave={() => setHoveredTask(null)}
+                        onDoubleClick={() => setEditingNode(node)}
+                        onStartDrag={(e) => handleTaskMouseDown(e, node.id, 'resize-start')}
+                        onEndDrag={(e) => handleTaskMouseDown(e, node.id, 'resize-end')}
+                        onBarDrag={(e) => handleTaskMouseDown(e, node.id, 'move')}
+                      />
+                      
+                      {/* Dashed outline when dragging */}
+                      {isDragging && (
+                        <rect
+                          x={displayX - 2}
+                          y={summaryY - 2}
+                          width={displayWidth + 4}
+                          height={32 + 4}
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          strokeDasharray="4 2"
+                          pointerEvents="none"
+                        />
+                      )}
+                    </g>
                   );
                 }
 
@@ -1300,7 +1435,7 @@ export function WBSPage() {
                         isHovered={isHovered}
                         onMouseEnter={() => setHoveredTask(node.id)}
                         onMouseLeave={() => setHoveredTask(null)}
-                        onClick={() => setEditingNode(node)}
+                        onDoubleClick={() => setEditingNode(node)}
                       />
 
                       {/* Dashed outline when dragging */}

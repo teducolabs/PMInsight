@@ -12,7 +12,8 @@ interface GanttTaskProps {
   isHovered: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onClick: () => void;
+  onClick?: () => void;
+  onDoubleClick?: () => void;
 }
 
 export function GanttTask({
@@ -25,6 +26,7 @@ export function GanttTask({
   onMouseEnter,
   onMouseLeave,
   onClick,
+  onDoubleClick,
 }: GanttTaskProps) {
   // Task bar color based on node type, critical path and status
   const getTaskColor = () => {
@@ -67,6 +69,7 @@ export function GanttTask({
               onMouseEnter={onMouseEnter}
               onMouseLeave={onMouseLeave}
               onClick={onClick}
+              onDoubleClick={onDoubleClick}
               style={{ cursor: 'pointer' }}
             >
               {/* Diamond shape for milestone */}
@@ -147,6 +150,7 @@ export function GanttTask({
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onClick={onClick}
+            onDoubleClick={onDoubleClick}
             style={{ cursor: 'pointer' }}
           >
             {/* Main task bar */}
