@@ -80,7 +80,30 @@ export const COLUMN_DEFINITIONS: readonly ColumnDefinition[] = [
     resizable: true,
     description: 'Start and end dates'
   },
+ 
   { 
+    key: 'progress', 
+    label: 'Progress', 
+    width: 120, 
+    minWidth: 100, 
+    maxWidth: 180, 
+    defaultVisible: true,
+    locked: false,
+    resizable: true,
+    description: 'Completion percentage'
+  },
+  { 
+    key: 'dependencies', 
+    label: 'Predecessors', 
+    width: 180, 
+    minWidth: 120, 
+    maxWidth: 300, 
+    defaultVisible: true,
+    locked: false,
+    resizable: true,
+    description: 'Task dependencies (e.g., 3FS, 5SS+2d)'
+  },
+   { 
     key: 'resources', 
     label: 'Resources', 
     width: 200, 
@@ -112,28 +135,6 @@ export const COLUMN_DEFINITIONS: readonly ColumnDefinition[] = [
     locked: false,
     resizable: true,
     description: 'Calculated cost based on effort × rate'
-  },
-  { 
-    key: 'progress', 
-    label: 'Progress', 
-    width: 120, 
-    minWidth: 100, 
-    maxWidth: 180, 
-    defaultVisible: true,
-    locked: false,
-    resizable: true,
-    description: 'Completion percentage'
-  },
-  { 
-    key: 'dependencies', 
-    label: 'Predecessors', 
-    width: 180, 
-    minWidth: 120, 
-    maxWidth: 300, 
-    defaultVisible: true,
-    locked: false,
-    resizable: true,
-    description: 'Task dependencies (e.g., 3FS, 5SS+2d)'
   },
 ] as const;
 

@@ -32,16 +32,54 @@ import { DragInfoTooltip } from './DragInfoTooltip';
 import { WBSTableHeader } from './WBSTableHeader';
 import { WBSTableRow } from './WBSTableRow';
 import { GanttTasksRenderer } from './GanttTasksRenderer';
-import { ROW_HEIGHT, DEFAULT_COLUMNS, type ColumnConfig } from './columnConfig';
+import { ColumnsDropdown } from './ColumnsDropdown';
+import { 
+  ROW_HEIGHT, 
+  DEFAULT_COLUMNS, 
+  COLUMN_DEFINITIONS,
+  resetColumnsToDefault,
+  type ColumnConfig 
+} from './columnConfig';
 
 
 type ViewMode = 'day' | 'week' | 'month';
+
+const STORAGE_KEY_VISIBLE_COLUMNS = 'wbs-visible-columns';
 
 export function WBSPage() {
   const { currentProjectId } = useProject();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
-  const [columns, setColumns] = useState<ColumnConfig[]>(DEFAULT_COLUMNS);
+  
+  // Initialize columns from localStorage or defaults
+  const [columns, setColumns] = useState<ColumnConfig[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_VISIBLE_COLUMNS);
+      if (saved) {
+        const visibleColumnIds = new Set<string>(JSON.parse(saved));
+        return DEFAULT_COLUMNS.map(col => ({
+          ...col,
+          visible: visibleColumnIds.has(col.id),
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load column visibility from localStorage:', error);
+    }
+    return DEFAULT_COLUMNS;
+  });
+
+  // Persist column visibility to localStorage
+  useEffect(() => {
+    try {
+      const visibleColumnIds = columns
+        .filter(col => col.visible)
+        .map(col => col.id);
+      localStorage.setItem(STORAGE_KEY_VISIBLE_COLUMNS, JSON.stringify(visibleColumnIds));
+    } catch (error) {
+      console.error('Failed to save column visibility to localStorage:', error);
+    }
+  }, [columns]);
+
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
@@ -492,6 +530,32 @@ export function WBSPage() {
       document.body.style.userSelect = '';
     };
   }, [resizingColumn, resizeStartX, resizeStartWidth]);
+
+  // Toggle column visibility
+  const toggleColumnVisibility = (columnId: string) => {
+    setColumns(prev => prev.map(col => {
+      if (col.id === columnId) {
+        // Check if this column is locked (cannot be hidden)
+        const definition = COLUMN_DEFINITIONS.find(def => def.key === columnId);
+        if (definition?.locked) {
+          return col; // Don't toggle locked columns
+        }
+        return { ...col, visible: !col.visible };
+      }
+      return col;
+    }));
+  };
+
+  // Reset columns to default
+  const handleResetColumns = () => {
+    setColumns(resetColumnsToDefault());
+  };
+
+  // Get active (visible) columns
+  const activeColumns = useMemo(() => 
+    columns.filter(col => col.visible),
+    [columns]
+  );
 
   // Helper to find node by ID in tree
   const findNodeById = (nodes: WBSNode[], id: string): WBSNode | null => {
@@ -949,6 +1013,11 @@ export function WBSPage() {
               <Maximize2 className="w-4 h-4" />
             )}
           </Button>
+          <ColumnsDropdown
+            columns={columns}
+            onToggleColumn={toggleColumnVisibility}
+            onResetColumns={handleResetColumns}
+          />
           <Button
             onClick={() => {
               setParentNodeForCreate(null);
