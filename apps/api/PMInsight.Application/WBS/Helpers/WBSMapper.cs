@@ -1,3 +1,4 @@
+using PMInsight.Application.Resources.Dtos;
 using PMInsight.Application.WBS.Dtos;
 using PMInsight.Domain.Entities;
 

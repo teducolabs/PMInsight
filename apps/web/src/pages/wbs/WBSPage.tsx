@@ -13,7 +13,7 @@ import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
 import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
 import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
-import { EditResourcesDialog } from '@/components/wbs/EditResourcesDialog';
+import { EditResourcesDialog } from '@/features/resources';
 import { wbsApi } from '@/lib/api/wbs';
 import { projectApi } from '@/lib/api/project';
 import type { Project } from '@/types/project';

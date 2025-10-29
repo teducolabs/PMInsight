@@ -1,7 +1,7 @@
 using MediatR;
-using PMInsight.Application.WBS.Dtos;
+using PMInsight.Application.Resources.Dtos;
 
-namespace PMInsight.Application.WBS.Commands;
+namespace PMInsight.Application.Resources.Commands;
 
 /// <summary>
 /// Command to add a resource assignment to a WBS node

@@ -7,9 +7,7 @@ import type { WBSNode } from '@/types/wbs';
 import { flattenWBSTree } from '@/types/wbs';
 import { parseDependencyString, dependenciesToString } from '@/lib/dependencies-parser';
 import { ROW_HEIGHT, type ColumnConfig } from './columnConfig';
-import { ResourcesColumn } from './ResourcesColumn';
-import { EffortColumn } from './EffortColumn';
-import { CostColumn } from './CostColumn';
+import { ResourcesColumn, EffortColumn, CostColumn } from '@/features/resources';
 
 interface WBSTableRowProps {
   node: WBSNode;

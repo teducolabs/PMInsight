@@ -1,11 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using PMInsight.Application.Common.Interfaces;
-using PMInsight.Application.WBS.Commands;
-using PMInsight.Application.WBS.Dtos;
+using PMInsight.Application.Resources.Commands;
+using PMInsight.Application.Resources.Dtos;
 using PMInsight.Domain.Common;
 
-namespace PMInsight.Application.WBS.Handlers;
+namespace PMInsight.Application.Resources.Handlers;
 
 /// <summary>
 /// Handler for updating actual hours on a resource assignment

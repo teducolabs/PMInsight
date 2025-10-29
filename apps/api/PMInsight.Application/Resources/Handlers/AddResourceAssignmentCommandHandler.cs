@@ -1,26 +1,27 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using PMInsight.Application.Common.Interfaces;
-using PMInsight.Application.WBS.Commands;
-using PMInsight.Application.WBS.Dtos;
+using PMInsight.Application.Resources.Commands;
+using PMInsight.Application.Resources.Dtos;
 using PMInsight.Domain.Common;
+using PMInsight.Domain.Entities;
 
-namespace PMInsight.Application.WBS.Handlers;
+namespace PMInsight.Application.Resources.Handlers;
 
 /// <summary>
-/// Handler for updating a resource assignment
+/// Handler for adding a resource assignment to a WBS node
 /// </summary>
-public class UpdateResourceAssignmentCommandHandler
-    : IRequestHandler<UpdateResourceAssignmentCommand, ResourceAssignmentDto>
+public class AddResourceAssignmentCommandHandler
+    : IRequestHandler<AddResourceAssignmentCommand, ResourceAssignmentDto>
 {
     private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
     private readonly IRepository<Domain.Entities.User> _userRepository;
-    private readonly ILogger<UpdateResourceAssignmentCommandHandler> _logger;
+    private readonly ILogger<AddResourceAssignmentCommandHandler> _logger;
 
-    public UpdateResourceAssignmentCommandHandler(
+    public AddResourceAssignmentCommandHandler(
         IRepository<Domain.Entities.WBS> wbsRepository,
         IRepository<Domain.Entities.User> userRepository,
-        ILogger<UpdateResourceAssignmentCommandHandler> logger
+        ILogger<AddResourceAssignmentCommandHandler> logger
     )
     {
         _wbsRepository = wbsRepository;
@@ -29,7 +30,7 @@ public class UpdateResourceAssignmentCommandHandler
     }
 
     public async Task<ResourceAssignmentDto> Handle(
-        UpdateResourceAssignmentCommand command,
+        AddResourceAssignmentCommand command,
         CancellationToken cancellationToken
     )
     {
@@ -41,49 +42,42 @@ public class UpdateResourceAssignmentCommandHandler
         if (node == null)
             throw new KeyNotFoundException($"WBS Node with ID {command.NodeId} not found");
 
-        var assignment = node.ResourceAssignments.FirstOrDefault(a => a.Id == command.AssignmentId);
-        if (assignment == null)
-            throw new KeyNotFoundException(
-                $"Resource assignment with ID {command.AssignmentId} not found"
-            );
+        // Verify user exists
+        var user = await _userRepository.GetByIdAsync(command.Request.UserId, cancellationToken);
+        if (user == null)
+            throw new KeyNotFoundException($"User with ID {command.Request.UserId} not found");
 
-        // Update assignment properties
-        if (command.Request.AllocationPercent.HasValue)
-            assignment.AllocationPercent = command.Request.AllocationPercent.Value;
-
-        if (command.Request.AssignmentStartDate.HasValue)
-            assignment.AssignmentStartDate = command.Request.AssignmentStartDate;
-
-        if (command.Request.AssignmentEndDate.HasValue)
-            assignment.AssignmentEndDate = command.Request.AssignmentEndDate;
-
-        if (command.Request.EstimatedHours.HasValue)
-            assignment.EstimatedHours = command.Request.EstimatedHours.Value;
-
-        if (command.Request.ActualHours.HasValue)
-            assignment.ActualHours = command.Request.ActualHours.Value;
-
-        if (command.Request.Role != null)
-            assignment.Role = command.Request.Role;
-
-        if (command.Request.IsPrimary.HasValue)
+        // Create new resource assignment
+        var assignment = new ResourceAssignment
         {
-            assignment.IsPrimary = command.Request.IsPrimary.Value;
+            UserId = command.Request.UserId,
+            AllocationPercent = command.Request.AllocationPercent,
+            AssignmentStartDate = command.Request.AssignmentStartDate,
+            AssignmentEndDate = command.Request.AssignmentEndDate,
+            EstimatedHours = command.Request.EstimatedHours ?? 0,
+            Role = command.Request.Role,
+            IsPrimary = command.Request.IsPrimary,
+            Notes = command.Request.Notes,
+            Currency = node.Currency,
+        };
 
-            // If setting as primary, unset others
-            if (assignment.IsPrimary)
+        // If this is primary, unset other primary assignments
+        if (assignment.IsPrimary)
+        {
+            foreach (var existing in node.ResourceAssignments)
             {
-                foreach (var other in node.ResourceAssignments.Where(a => a.Id != assignment.Id))
-                {
-                    other.IsPrimary = false;
-                }
+                existing.IsPrimary = false;
             }
         }
 
-        if (command.Request.Notes != null)
-            assignment.Notes = command.Request.Notes;
+        // Add assignment to node
+        node.ResourceAssignments.Add(assignment);
 
-        assignment.UpdatedAt = DateTime.UtcNow;
+        // Update legacy AssignedUserIds for backward compatibility
+        if (!node.AssignedUserIds.Contains(command.Request.UserId))
+        {
+            node.AssignedUserIds.Add(command.Request.UserId);
+        }
 
         // Recalculate rollup values
         RecalculateNodeResourceRollup(node);
@@ -92,21 +86,19 @@ public class UpdateResourceAssignmentCommandHandler
         await _wbsRepository.UpdateAsync(command.NodeId, wbs, cancellationToken);
 
         _logger.LogInformation(
-            "Updated resource assignment {AssignmentId} for user {UserId} on node {NodeId}",
+            "Added resource assignment {AssignmentId} for user {UserId} to node {NodeId}",
             assignment.Id,
             assignment.UserId,
             command.NodeId
         );
 
-        // Get user info for DTO
-        var user = await _userRepository.GetByIdAsync(assignment.UserId, cancellationToken);
-
+        // Map to DTO
         return new ResourceAssignmentDto
         {
             Id = assignment.Id,
             UserId = assignment.UserId,
-            UserName = user?.Name,
-            UserEmail = user?.Email,
+            UserName = user.Name,
+            UserEmail = user.Email,
             AllocationPercent = assignment.AllocationPercent,
             AssignmentStartDate = assignment.AssignmentStartDate,
             AssignmentEndDate = assignment.AssignmentEndDate,
@@ -123,10 +115,7 @@ public class UpdateResourceAssignmentCommandHandler
         };
     }
 
-    private Domain.Entities.WBSNode? FindNodeInTree(
-        List<Domain.Entities.WBSNode> nodes,
-        string nodeId
-    )
+    private WBSNode? FindNodeInTree(List<WBSNode> nodes, string nodeId)
     {
         foreach (var node in nodes)
         {
@@ -139,11 +128,18 @@ public class UpdateResourceAssignmentCommandHandler
         return null;
     }
 
-    private void RecalculateNodeResourceRollup(Domain.Entities.WBSNode node)
+    private void RecalculateNodeResourceRollup(WBSNode node)
     {
+        // Sum estimated hours from all assignments
         node.EstimatedHours = node.ResourceAssignments.Sum(a => a.EstimatedHours);
+
+        // Sum actual hours from all assignments
         node.ActualHours = node.ResourceAssignments.Sum(a => a.ActualHours);
+
+        // Sum planned cost from all assignments
         node.PlannedCost = node.ResourceAssignments.Sum(a => a.PlannedCost ?? 0);
+
+        // Sum actual cost from all assignments
         node.ActualCost = node.ResourceAssignments.Sum(a => a.ActualCost ?? 0);
     }
 }

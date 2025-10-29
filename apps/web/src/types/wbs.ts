@@ -2,6 +2,8 @@
 // WBS & Activity Unified Types (Merged from separate WBS and Activity types)
 // ============================================================================
 
+import type { ResourceAssignment } from '@/features/resources';
+
 // Node Types
 export enum WBSNodeType {
   Summary = 'Summary',     // Summary task (has children)
@@ -76,39 +78,6 @@ export interface WBSNodeBaseline {
   plannedCost: number;
   baselineDate: string;
   baselineVersion?: string;
-}
-
-// Resource Assignment (Phase 2 - Detailed resource tracking)
-export interface ResourceAssignment {
-  id: string;
-  userId: string;
-  userName?: string;
-  userEmail?: string;
-  
-  // Allocation
-  allocationPercent: number; // 0-100
-  assignmentStartDate?: string;
-  assignmentEndDate?: string;
-  
-  // Effort
-  estimatedHours: number;
-  actualHours: number;
-  
-  // Cost
-  plannedCost?: number;
-  actualCost?: number;
-  currency?: string;
-  
-  // Role
-  role?: string;
-  isPrimary: boolean;
-  
-  // Metadata
-  notes?: string;
-  createdAt: string;
-  updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 // Unified WBS Node (Summary/Task/Milestone)
@@ -245,31 +214,6 @@ export interface UpdateWBSNodeRequest {
   scopeConstraints?: string[];
 
   // Notes
-  notes?: string;
-}
-
-// Resource Assignment Request DTOs
-export interface AddResourceAssignmentRequest {
-  userId: string;
-  allocationPercent?: number;
-  role?: string;
-  estimatedHours?: number;
-  plannedCost?: number;
-  currency?: string;
-  isPrimary?: boolean;
-  assignmentStartDate?: string;
-  assignmentEndDate?: string;
-}
-
-export interface UpdateResourceAssignmentRequest {
-  allocationPercent?: number;
-  role?: string;
-  estimatedHours?: number;
-  actualHours?: number;
-  plannedCost?: number;
-  actualCost?: number;
-  currency?: string;
-  isPrimary?: boolean;
   notes?: string;
 }
 
