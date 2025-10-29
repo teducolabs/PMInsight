@@ -139,7 +139,7 @@ public record UpdateWBSNodeRequest
     public DateTime? ActualEndDate { get; init; }
     public int? PercentComplete { get; init; }
     public ActivityStatus? Status { get; init; }
-    public WBSNodeType Type { set; get; }
+    public WBSNodeType? Type { set; get; }
     
     // Resources
     public List<string>? AssignedUserIds { get; init; }

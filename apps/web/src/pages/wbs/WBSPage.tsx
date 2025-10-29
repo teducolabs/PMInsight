@@ -107,16 +107,21 @@ export function WBSPage() {
 
         // If no WBS exists, create one automatically
         if (!wbsData) {
-          console.log('No WBS found for project, creating new WBS...');
           wbsData = await wbsApi.create({
             projectId: currentProjectId,
             tree: [], // Empty tree initially
           });
-          console.log('Created new WBS:', wbsData.id);
         }
 
         setWbsId(wbsData.id);
         setWbsNodes(wbsData.tree || []);
+
+        // Debug: Check for nodes with dependencies
+        const flattenForDebug = (nodes: WBSNode[]): WBSNode[] => {
+          return nodes.flatMap(n => [n, ...flattenForDebug(n.children || [])]);
+        };
+        const allNodes = flattenForDebug(wbsData.tree || []);
+        const nodesWithPreds = allNodes.filter(n => n.predecessors && n.predecessors.length > 0);
 
         // Auto-expand first level
         if (wbsData.tree && wbsData.tree.length > 0) {
@@ -221,7 +226,6 @@ export function WBSPage() {
     };
 
     wbsNodes.forEach(node => processNode(node, 0));
-    console.log('📋 Visible rows:', rows.length, rows);
     return rows;
   }, [expandedNodes, wbsNodes]);
 
@@ -282,12 +286,9 @@ export function WBSPage() {
     };
     collectNodes(wbsNodes);
 
-    console.log('🔍 All nodes collected:', allNodes.length, allNodes);
-
     if (allNodes.length === 0) {
       // Default range if no nodes
       const now = new Date();
-      console.log('⚠️ No nodes found, using default range');
       return {
         startDate: now,
         ganttColumns: [now],
@@ -299,11 +300,8 @@ export function WBSPage() {
       .filter((a: WBSNode) => a.plannedStartDate && a.plannedEndDate)
       .flatMap((a: WBSNode) => [new Date(a.plannedStartDate!), new Date(a.plannedEndDate!)]);
 
-    console.log('📅 Dates with plannedStartDate/EndDate:', dates.length, dates);
-
     if (dates.length === 0) {
       const now = new Date();
-      console.log('⚠️ No dates found, using default range');
       return {
         startDate: now,
         ganttColumns: [now],
@@ -313,8 +311,6 @@ export function WBSPage() {
 
     const minDate = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
-
-    console.log('📅 Date range:', { minDate, maxDate });
 
     // Round to start of week (Monday) for better alignment
     const start = addDays(minDate, -7);
@@ -346,16 +342,12 @@ export function WBSPage() {
       }
     }
 
-    console.log('📊 Generated columns:', cols.length, 'width:', width);
-
     return {
       startDate: start,
       ganttColumns: cols,
       columnWidth: width,
     };
   }, [viewMode, wbsNodes]);
-
-  console.log('📊 Gantt config:', { startDate, ganttColumns: ganttColumns.length, columnWidth });
 
   const totalWidth = ganttColumns.length * columnWidth;
 
@@ -377,9 +369,11 @@ export function WBSPage() {
     const x = weekIndex * columnWidth;
     const width = weeksSpan * columnWidth;
 
-    // Find row index for y position
+    // Find row index for y position - return null if node is not visible
     const rowIndex = visibleRows.findIndex(r => r.node.id === node.id);
-    const y = rowIndex >= 0 ? rowIndex * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2 : 0;
+    if (rowIndex < 0) return null; // Node is collapsed/hidden
+    
+    const y = rowIndex * ROW_HEIGHT + (ROW_HEIGHT - 32) / 2;
 
     return { x, width, y };
   };
@@ -421,9 +415,13 @@ export function WBSPage() {
 
     collectTasks(node);
 
-    if (allTasks.length === 0) return 0;
+    // If no children tasks, use the node's own progress
+    if (allTasks.length === 0) {
+      return node.percentComplete || 0;
+    }
 
-    const totalProgress = allTasks.reduce((sum: number, a: WBSNode) => sum + a.percentComplete, 0);
+    // If has children tasks, calculate average
+    const totalProgress = allTasks.reduce((sum: number, a: WBSNode) => sum + (a.percentComplete || 0), 0);
     return Math.round(totalProgress / allTasks.length);
   };
 
@@ -512,8 +510,6 @@ export function WBSPage() {
     const node = findNodeById(wbsNodes, nodeId);
     if (!node) return; // Allow drag for all node types
 
-    console.log(`🖱️ MouseDown: ${mode} on ${node.name}`);
-
     setDraggingTask(nodeId);
     setDragMode(mode);
     setDragStartX(e.clientX);
@@ -556,14 +552,10 @@ export function WBSPage() {
       newStartDate,
       newEndDate,
     });
-
-    console.log(`Drag ${dragMode}: ${draggingTask}, deltaX: ${deltaX}px, days: ${daysDelta}`);
   };
 
   const handleMouseUp = async () => {
     if (draggingTask && dragMode && dragInfo && dragInfo.newStartDate && dragInfo.newEndDate && wbsId) {
-      console.log('✅ Drag completed for', draggingTask);
-
       // Save task ID before clearing state
       const taskId = draggingTask;
       const newStart = dragInfo.newStartDate;
@@ -592,8 +584,6 @@ export function WBSPage() {
         if (updatedWBS) {
           setWbsNodes(updatedWBS.tree);
         }
-
-        console.log('✅ Updated node dates via API');
       } catch (error) {
         console.error('Failed to update node dates:', error);
         // Reload to revert optimistic update on error
@@ -630,13 +620,10 @@ export function WBSPage() {
         plannedCost: nodeData.plannedCost,
       });
 
-      console.log('✅ Created WBS node via API');
-
       // Reload the entire WBS tree to get fresh data
       const updatedWBS = await wbsApi.getById(wbsId);
       if (updatedWBS) {
         setWbsNodes(updatedWBS.tree || []);
-        console.log('✅ Reloaded WBS tree, nodes count:', updatedWBS.tree?.length || 0);
       }
 
       // Expand parent if creating child
@@ -684,14 +671,10 @@ export function WBSPage() {
         scopeConstraints: nodeData.scopeConstraints,
         notes: nodeData.notes,
       });
-
-      console.log('✅ Updated WBS node via API');
-
       // Reload the entire WBS tree to get fresh data
       const updatedWBS = await wbsApi.getById(wbsId);
       if (updatedWBS) {
         setWbsNodes(updatedWBS.tree || []);
-        console.log('✅ Reloaded WBS tree after update');
       }
     } catch (error) {
       console.error('❌ Failed to update WBS node:', error);
@@ -741,9 +724,6 @@ export function WBSPage() {
     try {
       const progress = parseInt(progressValue) || 0;
       const clampedProgress = Math.max(0, Math.min(100, progress));
-      
-      console.log('💾 Updating progress for node', nodeId, 'to', clampedProgress);
-      
       await wbsApi.updateNodeProgress(wbsId, nodeId, clampedProgress);
       
       // Reload WBS after update
@@ -753,7 +733,6 @@ export function WBSPage() {
       }
       
       setEditingProgress(null);
-      console.log('✅ Updated progress for node', nodeId);
     } catch (error) {
       console.error('❌ Failed to update progress:', error);
       setEditingProgress(null);
@@ -767,9 +746,6 @@ export function WBSPage() {
     try {
       const duration = parseInt(durationValue) || 0;
       if (duration < 0) return;
-
-      console.log('💾 Updating duration for node', nodeId, 'to', duration, 'days');
-
       // Find node to get startDate
       const node = findNodeById(wbsNodes, nodeId);
       if (node && node.plannedStartDate) {
@@ -787,8 +763,6 @@ export function WBSPage() {
         if (updatedWBS) {
           setWbsNodes(updatedWBS.tree || []);
         }
-
-        console.log('✅ Updated duration for node', nodeId);
       }
 
       setEditingDuration(null);
@@ -813,8 +787,6 @@ export function WBSPage() {
       if (updatedWBS) {
         setWbsNodes(updatedWBS.tree);
       }
-
-      console.log('✅ Updated predecessors for node', nodeId);
     } catch (error) {
       console.error('❌ Failed to save dependencies:', error);
     }
@@ -973,23 +945,35 @@ export function WBSPage() {
                 <span className="text-xs">%</span>
               </div>
             ) : (
-              <div 
-                className="flex items-center gap-2 w-full cursor-pointer hover:bg-gray-50 rounded px-1"
-                onClick={() => {
-                  setEditingProgress(node.id);
-                  setProgressValue(node.percentComplete?.toString() || '0');
-                }}
-              >
-                <div className="flex-1 bg-gray-200 rounded-full h-2 relative">
+              (() => {
+                // For Summary nodes: check if it has children tasks
+                const hasChildrenTasks = node.type === 'Summary' && node.children && node.children.length > 0;
+                const displayProgress = node.type === 'Summary' ? getWBSProgress(node) : (node.percentComplete || 0);
+                const canEdit = !(node.type === 'Summary' && hasChildrenTasks); // Can't edit if Summary with children
+                
+                return (
                   <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all"
-                    style={{ width: `${node.percentComplete || 0}%` }}
-                  />
-                </div>
-                <span className="text-xs font-medium text-gray-700 w-10 text-right">
-                  {node.percentComplete || 0}%
-                </span>
-              </div>
+                    className={`flex items-center gap-2 w-full rounded px-1 ${canEdit ? 'cursor-pointer hover:bg-gray-50' : 'cursor-not-allowed opacity-60'}`}
+                    onClick={() => {
+                      if (canEdit) {
+                        setEditingProgress(node.id);
+                        setProgressValue(node.percentComplete?.toString() || '0');
+                      }
+                    }}
+                    title={hasChildrenTasks ? 'Progress được tính tự động từ các task con' : 'Click để chỉnh sửa progress'}
+                  >
+                    <div className="flex-1 bg-gray-200 rounded-full h-2 relative">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        style={{ width: `${displayProgress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700 w-10 text-right">
+                      {displayProgress}%
+                    </span>
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
