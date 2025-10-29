@@ -12,8 +12,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Mail, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit, Trash2, Mail, Phone, ChevronDown, ChevronUp, ListChecks } from 'lucide-react';
 import { UpdateStakeholderDialog } from './UpdateStakeholderDialog';
+import { StakeholderEngagementPanel } from './StakeholderEngagementPanel';
 import { toast } from '@/components/ui/use-toast';
 import {
   AlertDialog,
@@ -36,6 +37,8 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [stakeholderToDelete, setStakeholderToDelete] = useState<Stakeholder | null>(null);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
+  const [isEngagementPanelOpen, setIsEngagementPanelOpen] = useState(false);
+  const [engagementStakeholder, setEngagementStakeholder] = useState<Stakeholder | null>(null);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ['stakeholders', projectId],
@@ -71,6 +74,11 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
   const handleEdit = (stakeholder: Stakeholder) => {
     setSelectedStakeholder(stakeholder);
     setIsUpdateDialogOpen(true);
+  };
+
+  const handleEngagement = (stakeholder: Stakeholder) => {
+    setEngagementStakeholder(stakeholder);
+    setIsEngagementPanelOpen(true);
   };
 
   const handleDeleteClick = (stakeholder: Stakeholder) => {
@@ -197,7 +205,16 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
                   <Button 
                     variant="ghost" 
                     size="icon"
+                    onClick={() => handleEngagement(stakeholder)}
+                    title="Xem engagement plan"
+                  >
+                    <ListChecks className="h-4 w-4 text-blue-600" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
                     onClick={() => handleEdit(stakeholder)}
+                    title="Chỉnh sửa"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -206,6 +223,7 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
                     size="icon" 
                     className="text-red-600 hover:text-red-700"
                     onClick={() => handleDeleteClick(stakeholder)}
+                    title="Xóa"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -223,6 +241,13 @@ export function StakeholderTable({ projectId }: StakeholderTableProps) {
         stakeholder={selectedStakeholder}
         open={isUpdateDialogOpen}
         onOpenChange={setIsUpdateDialogOpen}
+      />
+
+      {/* Engagement Panel */}
+      <StakeholderEngagementPanel
+        stakeholder={engagementStakeholder}
+        open={isEngagementPanelOpen}
+        onOpenChange={setIsEngagementPanelOpen}
       />
 
       {/* Delete Confirmation Dialog */}

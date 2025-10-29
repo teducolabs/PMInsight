@@ -1,31 +1,47 @@
-import type { Activity } from '@/types/activity';
+import type { WBSNode } from '@/types/wbs';
 
 interface GanttDependencyArrowsProps {
-  activities: Activity[];
-  getTaskPosition: (activity: Activity) => { x: number; width: number; y: number } | null;
+  nodes: WBSNode[];
+  getTaskPosition: (node: WBSNode) => { x: number; width: number; y: number } | null;
   rowHeight: number;
   taskBarHeight: number;
 }
 
 export function GanttDependencyArrows({
-  activities,
+  nodes,
   getTaskPosition,
   taskBarHeight,
 }: GanttDependencyArrowsProps) {
   const arrows: JSX.Element[] = [];
 
-  activities.forEach((activity) => {
-    if (!activity.predecessors || activity.predecessors.length === 0) return;
+  // Debug: Log nodes with predecessors
+  const nodesWithDeps = nodes.filter(n => n.predecessors && n.predecessors.length > 0);
+  if (nodesWithDeps.length > 0) {
+    console.log('🔗 Nodes with dependencies:', nodesWithDeps.map(n => ({ id: n.id, name: n.name, predecessors: n.predecessors })));
+  }
 
-    const successorPos = getTaskPosition(activity);
-    if (!successorPos) return;
+  nodes.forEach((node) => {
+    // All node types can have dependencies (Summary, Task, Milestone)
+    if (!node.predecessors || node.predecessors.length === 0) return;
 
-    activity.predecessors.forEach((dep, index) => {
-      const predecessor = activities.find((a) => a.id === dep.activityId);
-      if (!predecessor) return;
+    const successorPos = getTaskPosition(node);
+    if (!successorPos) {
+      console.log('⚠️ No position found for successor:', node.name);
+      return;
+    }
+
+    node.predecessors.forEach((dep, index) => {
+      const predecessor = nodes.find((n) => n.id === dep.nodeId);
+      if (!predecessor) {
+        console.log('⚠️ Predecessor not found:', dep.nodeId);
+        return;
+      }
 
       const predecessorPos = getTaskPosition(predecessor);
-      if (!predecessorPos) return;
+      if (!predecessorPos) {
+        console.log('⚠️ No position found for predecessor:', predecessor.name);
+        return;
+      }
 
       // Calculate connection points based on dependency type
       let startX: number, startY: number, endX: number, endY: number;
@@ -74,7 +90,7 @@ export function GanttDependencyArrows({
           : '#10b981' // Green for lead
         : '#6b7280'; // Gray for normal
 
-      const key = `dep-${predecessor.id}-${activity.id}-${index}`;
+      const key = `dep-${predecessor.id}-${node.id}-${index}`;
 
       arrows.push(
         <g key={key}>

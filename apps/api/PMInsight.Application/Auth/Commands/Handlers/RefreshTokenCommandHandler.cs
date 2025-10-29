@@ -29,9 +29,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
         var accessToken = _tokenService.GenerateAccessToken(user);
         var refreshToken = _tokenService.GenerateRefreshToken();
         
-        // Update user with new refresh token
+        // Update user with new refresh token (30 days instead of 7)
         user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
         await _userRepository.UpdateAsync(user.Id, user, cancellationToken);
 
         return new RefreshTokenResult

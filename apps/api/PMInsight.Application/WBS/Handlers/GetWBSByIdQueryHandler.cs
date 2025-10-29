@@ -1,6 +1,7 @@
 using MediatR;
 using PMInsight.Application.Common.Interfaces;
 using PMInsight.Application.WBS.Dtos;
+using PMInsight.Application.WBS.Helpers;
 using PMInsight.Application.WBS.Queries;
 using PMInsight.Domain.Common;
 
@@ -29,18 +30,6 @@ public class GetWBSByIdQueryHandler : IRequestHandler<GetWBSByIdQuery, WBSDto?>
             return null;
         }
 
-        return new WBSDto
-        {
-            Id = wbs.Id,
-            ProjectId = wbs.ProjectId,
-            OrganizationId = wbs.OrganizationId,
-            Tree = wbs.Tree,
-            Version = wbs.Version,
-            BaselineRef = wbs.BaselineRef,
-            LockedBy = wbs.LockedBy,
-            LockedAt = wbs.LockedAt,
-            CreatedAt = wbs.CreatedAt,
-            UpdatedAt = wbs.UpdatedAt,
-        };
+        return WBSMapper.MapToDto(wbs);
     }
 }

@@ -1,4 +1,4 @@
-import type { DependencyType } from '@/types/activity';
+import type { DependencyType } from '@/types/wbs';
 
 interface GanttDependencyProps {
   type: DependencyType;

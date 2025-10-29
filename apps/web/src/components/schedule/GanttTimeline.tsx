@@ -1,4 +1,4 @@
-import type { ViewMode } from './GanttChart';
+import type { ViewMode } from './types';
 
 interface GanttTimelineProps {
   startDate: Date;

@@ -1,12 +1,17 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { stakeholderApi } from '@/lib/api/stakeholder';
 import { Stakeholder } from '@/types/stakeholder';
+import { StakeholderEngagementPanel } from './StakeholderEngagementPanel';
 
 interface StakeholderMatrixProps {
   projectId: string;
 }
 
 export function StakeholderMatrix({ projectId }: StakeholderMatrixProps) {
+  const [selectedStakeholder, setSelectedStakeholder] = useState<Stakeholder | null>(null);
+  const [isEngagementPanelOpen, setIsEngagementPanelOpen] = useState(false);
+
   const { data: response, isLoading } = useQuery({
     queryKey: ['stakeholders', projectId],
     queryFn: () => stakeholderApi.getByProject(projectId),
@@ -17,6 +22,11 @@ export function StakeholderMatrix({ projectId }: StakeholderMatrixProps) {
   if (isLoading) {
     return <div>Đang tải...</div>;
   }
+
+  const handleStakeholderClick = (stakeholder: Stakeholder) => {
+    setSelectedStakeholder(stakeholder);
+    setIsEngagementPanelOpen(true);
+  };
 
   const getQuadrant = (influence: number, interest: number) => {
     if (influence >= 3 && interest >= 3) return 'manage-closely';
@@ -131,23 +141,32 @@ export function StakeholderMatrix({ projectId }: StakeholderMatrixProps) {
             return (
               <div
                 key={stakeholder.id}
-                className="absolute group"
+                className="absolute group cursor-pointer"
                 style={{
                   left: `${x}%`,
                   top: `${y}%`,
                   transform: 'translate(-50%, -50%)',
                 }}
+                onClick={() => handleStakeholderClick(stakeholder)}
               >
-                <div className={`h-4 w-4 rounded-full ${color} cursor-pointer shadow-lg transition-transform hover:scale-150`} />
-                <div className="absolute left-full top-0 ml-2 hidden group-hover:block whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white">
+                <div className={`h-4 w-4 rounded-full ${color} shadow-lg transition-transform hover:scale-150`} />
+                <div className="absolute left-full top-0 ml-2 hidden group-hover:block whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white z-10">
                   <div className="font-semibold">{stakeholder.name}</div>
                   <div className="text-gray-300">{stakeholder.role}</div>
+                  <div className="text-gray-400 text-[10px] mt-1">Click để xem playbook</div>
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Engagement Panel */}
+      <StakeholderEngagementPanel
+        stakeholder={selectedStakeholder}
+        open={isEngagementPanelOpen}
+        onOpenChange={setIsEngagementPanelOpen}
+      />
     </div>
   );
 }

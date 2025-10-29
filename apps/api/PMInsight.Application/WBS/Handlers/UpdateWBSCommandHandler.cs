@@ -2,6 +2,7 @@ using MediatR;
 using PMInsight.Application.Common.Interfaces;
 using PMInsight.Application.WBS.Commands;
 using PMInsight.Application.WBS.Dtos;
+using PMInsight.Application.WBS.Helpers;
 using PMInsight.Domain.Common;
 
 namespace PMInsight.Application.WBS.Handlers;
@@ -39,18 +40,6 @@ public class UpdateWBSCommandHandler : IRequestHandler<UpdateWBSCommand, WBSDto>
 
         await _wbsRepository.UpdateAsync(wbs.Id, wbs, cancellationToken);
 
-        return new WBSDto
-        {
-            Id = wbs.Id,
-            ProjectId = wbs.ProjectId,
-            OrganizationId = wbs.OrganizationId,
-            Tree = wbs.Tree,
-            Version = wbs.Version,
-            BaselineRef = wbs.BaselineRef,
-            LockedBy = wbs.LockedBy,
-            LockedAt = wbs.LockedAt,
-            CreatedAt = wbs.CreatedAt,
-            UpdatedAt = wbs.UpdatedAt,
-        };
+        return WBSMapper.MapToDto(wbs);
     }
 }

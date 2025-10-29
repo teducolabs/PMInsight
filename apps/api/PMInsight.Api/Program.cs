@@ -14,7 +14,6 @@ using FluentValidation.AspNetCore;
 using Serilog;
 using System.Text;
 using MongoDB.Driver;
-using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,16 +80,22 @@ builder.Services.AddScoped<IRepository<Issue>>(sp => {
     return new TenantRepository<Issue>(context, tenantContext.OrganizationId, "Issues");
 });
 
-builder.Services.AddScoped<IRepository<ScheduleActivity>>(sp => {
-    var context = sp.GetRequiredService<IMongoContext>();
-    var tenantContext = sp.GetRequiredService<ITenantContext>();
-    return new TenantRepository<ScheduleActivity>(context, tenantContext.OrganizationId, "ScheduleActivities");
-});
-
 builder.Services.AddScoped<IRepository<WBS>>(sp => {
     var context = sp.GetRequiredService<IMongoContext>();
     var tenantContext = sp.GetRequiredService<ITenantContext>();
     return new TenantRepository<WBS>(context, tenantContext.OrganizationId, "WBSs");
+});
+
+builder.Services.AddScoped<IRepository<StakeholderEngagementHistory>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<StakeholderEngagementHistory>(context, tenantContext.OrganizationId, "StakeholderEngagementHistories");
+});
+
+builder.Services.AddScoped<IRepository<StakeholderEngagementAction>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<StakeholderEngagementAction>(context, tenantContext.OrganizationId, "StakeholderEngagementActions");
 });
 
 // CORS
