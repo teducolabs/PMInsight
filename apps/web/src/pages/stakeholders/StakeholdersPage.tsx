@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { StakeholderTable } from '@/components/stakeholders/StakeholderTable';
-import { StakeholderMatrix } from '@/components/stakeholders/StakeholderMatrix';
-import { CreateStakeholderDialog } from '@/components/stakeholders/CreateStakeholderDialog';
+import { StakeholderTable, StakeholderMatrix, CreateStakeholderDialog } from '@/features/stakeholders';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProject } from '@/lib/context/ProjectContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

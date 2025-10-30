@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { Plus, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ProjectStatsCards } from '@/components/projects/ProjectStatsCards';
-import { ProjectsTable } from '@/components/projects/ProjectsTable';
-import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
+import { ProjectStatsCards, ProjectsTable, CreateProjectDialog } from '@/features/projects';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   Select,
@@ -13,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ProjectStatus, ProjectPriority } from '@/types/project';
+import { ProjectStatus, ProjectPriority } from '@/features/projects';
 
 export function ProjectsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);

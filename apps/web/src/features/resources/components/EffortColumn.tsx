@@ -5,7 +5,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { WBSNode } from '@/types/wbs';
+import type { WBSNode } from '@/features/wbs';
 
 interface EffortColumnProps {
   node: WBSNode;

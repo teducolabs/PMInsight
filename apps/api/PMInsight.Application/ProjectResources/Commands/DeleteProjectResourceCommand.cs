@@ -21,12 +21,12 @@ public record DeleteProjectResourceCommand : IRequest
 public class DeleteProjectResourceCommandHandler 
     : IRequestHandler<DeleteProjectResourceCommand>
 {
-    private readonly ITenantRepository<ProjectResource> _resourceRepository;
-    private readonly ITenantRepository<WBS> _wbsRepository;
+    private readonly IRepository<ProjectResource> _resourceRepository;
+    private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
 
     public DeleteProjectResourceCommandHandler(
-        ITenantRepository<ProjectResource> resourceRepository,
-        ITenantRepository<WBS> wbsRepository)
+        IRepository<ProjectResource> resourceRepository,
+        IRepository<Domain.Entities.WBS> wbsRepository)
     {
         _resourceRepository = resourceRepository;
         _wbsRepository = wbsRepository;

@@ -15,13 +15,13 @@ public class UpdateResourceActualHoursCommandHandler
     : IRequestHandler<UpdateResourceActualHoursCommand, ResourceAssignmentDto>
 {
     private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
-    private readonly ITenantRepository<Domain.Entities.ProjectResource> _projectResourceRepository;
+    private readonly IRepository<Domain.Entities.ProjectResource> _projectResourceRepository;
     private readonly IRepository<Domain.Entities.User> _userRepository;
     private readonly ILogger<UpdateResourceActualHoursCommandHandler> _logger;
 
     public UpdateResourceActualHoursCommandHandler(
         IRepository<Domain.Entities.WBS> wbsRepository,
-        ITenantRepository<Domain.Entities.ProjectResource> projectResourceRepository,
+        IRepository<Domain.Entities.ProjectResource> projectResourceRepository,
         IRepository<Domain.Entities.User> userRepository,
         ILogger<UpdateResourceActualHoursCommandHandler> logger
     )

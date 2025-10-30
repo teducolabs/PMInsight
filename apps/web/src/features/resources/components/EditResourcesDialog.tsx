@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { resourceAssignmentApi } from '../api/resourceAssignmentApi';
 import { projectResourceApi } from '../api/projectResourceApi';
-import type { WBSNode } from '@/types/wbs';
 import type { ResourceAssignment, AddResourceAssignmentRequest, UpdateResourceAssignmentRequest, ProjectResource } from '../types';
+import { type WBSNode } from '@/features/wbs';
 
 // Temporary toast replacement
 const toast = {
@@ -27,8 +27,7 @@ interface EditResourcesDialogProps {
   projectId?: string;
 }
 
-interface AssignmentForm extends Partial<ResourceAssignment> {
-  projectResourceId?: string;
+interface AssignmentForm extends ResourceAssignment {
   isNew?: boolean;
 }
 
@@ -129,7 +128,7 @@ export function EditResourcesDialog({ isOpen, onClose, node, wbsId, onUpdate, pr
       const updatedAssignments = assignments.filter(a => !a.isNew);
       for (const assignment of updatedAssignments) {
         const request: UpdateResourceAssignmentRequest = {
-          projectResourceId: assignment.projectResourceId,
+          projectResourceId: assignment.projectResourceId || undefined,
           allocationPercent: assignment.allocationPercent,
           estimatedHours: assignment.estimatedHours,
           actualHours: assignment.actualHours,
@@ -176,7 +175,7 @@ export function EditResourcesDialog({ isOpen, onClose, node, wbsId, onUpdate, pr
           ) : (
             <>
               {assignments.map((assignment, index) => {
-                const resource = getResourceInfo(assignment.projectResourceId);
+                const resource = getResourceInfo(assignment.projectResourceId || undefined);
                 return (
                   <div key={assignment.id} className="border rounded-lg p-4 space-y-3 bg-white">
                     <div className="flex items-start justify-between">

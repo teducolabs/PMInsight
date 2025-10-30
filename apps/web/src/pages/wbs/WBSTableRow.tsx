@@ -3,8 +3,8 @@ import { vi } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ChevronDown, ChevronRight, FolderTree, CheckSquare, Diamond, Pencil, Plus } from 'lucide-react';
-import type { WBSNode } from '@/types/wbs';
-import { flattenWBSTree } from '@/types/wbs';
+import type { WBSNode } from '@/features/wbs';
+import { flattenWBSTree } from '@/features/wbs';
 import { parseDependencyString, dependenciesToString } from '@/lib/dependencies-parser';
 import { ROW_HEIGHT, type ColumnConfig } from './columnConfig';
 import { ResourcesColumn, EffortColumn, CostColumn } from '@/features/resources';
@@ -397,3 +397,4 @@ export function WBSTableRow({
     </div>
   );
 }
+

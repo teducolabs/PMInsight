@@ -1,5 +1,5 @@
-import type { WBSNode } from '@/types/wbs';
-import { flattenWBSTree } from '@/types/wbs';
+import type { WBSNode } from '@/features/wbs';
+import { flattenWBSTree } from '@/features/wbs';
 import { validateTaskMove, calculateCascadingUpdates } from '@/lib/dependency-scheduler';
 
 interface DragInfoTooltipProps {
@@ -53,3 +53,4 @@ export function DragInfoTooltip({ draggingTask, dragMode, dragInfo, wbsNodes }: 
     </div>
   );
 }
+

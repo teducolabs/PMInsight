@@ -1,5 +1,5 @@
 import { useProject } from '@/lib/context/ProjectContext';
-import { projectApi } from '@/lib/api/project';
+import { projectApi, type Project } from '@/features/projects';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,6 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import type { Project } from '@/types/project';
 
 export function ProjectSelector() {
   const [open, setOpen] = useState(false);

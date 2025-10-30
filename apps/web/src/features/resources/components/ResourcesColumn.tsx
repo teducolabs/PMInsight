@@ -7,7 +7,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { WBSNode } from '@/types/wbs';
+import type { WBSNode } from '@/features/wbs';
+import type { ResourceAssignment } from '../types';
 
 interface ResourcesColumnProps {
   node: WBSNode;
@@ -20,7 +21,7 @@ export function ResourcesColumn({ node, width, onEditResources }: ResourcesColum
   const hasResources = assignments.length > 0;
 
   // Get primary resource (prefer from ProjectResource, fallback to legacy)
-  const primaryResource = assignments.find(a => a.isPrimary);
+  const primaryResource = assignments.find((a: ResourceAssignment) => a.isPrimary);
 
   // Get initials for avatar
   const getInitials = (name: string | undefined): string => {
@@ -64,7 +65,7 @@ export function ResourcesColumn({ node, width, onEditResources }: ResourcesColum
         <div className="flex items-center gap-2 flex-1">
           {/* Resource Avatars (max 3 visible) */}
           <div className="flex -space-x-2">
-            {assignments.slice(0, 3).map((assignment) => (
+            {assignments.slice(0, 3).map((assignment: ResourceAssignment) => (
               <TooltipProvider key={assignment.id}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -123,7 +124,7 @@ export function ResourcesColumn({ node, width, onEditResources }: ResourcesColum
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <div className="text-sm">
-                      {assignments.slice(3).map(a => (
+                      {assignments.slice(3).map((a: ResourceAssignment) => (
                         <div key={a.id}>{a.userName || 'Unknown'}</div>
                       ))}
                     </div>

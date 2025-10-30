@@ -22,15 +22,15 @@ public record UpdateProjectResourceCommand : IRequest<ProjectResourceDto>
 public class UpdateProjectResourceCommandHandler 
     : IRequestHandler<UpdateProjectResourceCommand, ProjectResourceDto>
 {
-    private readonly ITenantRepository<ProjectResource> _resourceRepository;
-    private readonly ITenantRepository<User> _userRepository;
-    private readonly ITenantRepository<WBS> _wbsRepository;
+    private readonly IRepository<ProjectResource> _resourceRepository;
+    private readonly IRepository<User> _userRepository;
+    private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public UpdateProjectResourceCommandHandler(
-        ITenantRepository<ProjectResource> resourceRepository,
-        ITenantRepository<User> userRepository,
-        ITenantRepository<WBS> wbsRepository,
+        IRepository<ProjectResource> resourceRepository,
+        IRepository<User> userRepository,
+        IRepository<Domain.Entities.WBS> wbsRepository,
         ICurrentUserService currentUserService)
     {
         _resourceRepository = resourceRepository;
@@ -97,7 +97,6 @@ public class UpdateProjectResourceCommandHandler
         resource.HourlyRate = command.Request.HourlyRate;
         resource.MonthlyCapacity = command.Request.MonthlyCapacity;
         resource.UpdatedAt = DateTime.UtcNow;
-        resource.UpdatedBy = _currentUserService.UserId;
 
         await _resourceRepository.UpdateAsync(command.ResourceId, resource, cancellationToken);
 

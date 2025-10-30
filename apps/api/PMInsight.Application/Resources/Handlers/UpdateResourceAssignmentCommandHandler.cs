@@ -15,13 +15,13 @@ public class UpdateResourceAssignmentCommandHandler
     : IRequestHandler<UpdateResourceAssignmentCommand, ResourceAssignmentDto>
 {
     private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
-    private readonly ITenantRepository<Domain.Entities.ProjectResource> _projectResourceRepository;
+    private readonly IRepository<Domain.Entities.ProjectResource> _projectResourceRepository;
     private readonly IRepository<Domain.Entities.User> _userRepository;
     private readonly ILogger<UpdateResourceAssignmentCommandHandler> _logger;
 
     public UpdateResourceAssignmentCommandHandler(
         IRepository<Domain.Entities.WBS> wbsRepository,
-        ITenantRepository<Domain.Entities.ProjectResource> projectResourceRepository,
+        IRepository<Domain.Entities.ProjectResource> projectResourceRepository,
         IRepository<Domain.Entities.User> userRepository,
         ILogger<UpdateResourceAssignmentCommandHandler> logger
     )

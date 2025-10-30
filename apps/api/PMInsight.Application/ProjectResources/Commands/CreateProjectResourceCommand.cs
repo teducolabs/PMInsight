@@ -22,15 +22,15 @@ public record CreateProjectResourceCommand : IRequest<ProjectResourceDto>
 public class CreateProjectResourceCommandHandler 
     : IRequestHandler<CreateProjectResourceCommand, ProjectResourceDto>
 {
-    private readonly ITenantRepository<ProjectResource> _resourceRepository;
-    private readonly ITenantRepository<User> _userRepository;
-    private readonly ITenantRepository<WBS> _wbsRepository;
+    private readonly IRepository<ProjectResource> _resourceRepository;
+    private readonly IRepository<User> _userRepository;
+    private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public CreateProjectResourceCommandHandler(
-        ITenantRepository<ProjectResource> resourceRepository,
-        ITenantRepository<User> userRepository,
-        ITenantRepository<WBS> wbsRepository,
+        IRepository<ProjectResource> resourceRepository,
+        IRepository<User> userRepository,
+        IRepository<Domain.Entities.WBS> wbsRepository,
         ICurrentUserService currentUserService)
     {
         _resourceRepository = resourceRepository;
@@ -87,7 +87,6 @@ public class CreateProjectResourceCommandHandler
             MonthlyCapacity = command.Request.MonthlyCapacity,
             OrganizationId = orgId,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = _currentUserService.UserId
         };
 
         var created = await _resourceRepository.CreateAsync(resource, cancellationToken);

@@ -1,8 +1,7 @@
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import type { WBSNode } from '@/types/wbs';
-import { GanttTask } from '@/components/schedule/GanttTask';
-import { WBSSummaryBar } from '@/components/schedule/WBSSummaryBar';
+import type { WBSNode } from '@/features/wbs';
+import { GanttTask, WBSSummaryBar } from '@/features/schedule';
 import { ROW_HEIGHT } from './columnConfig';
 
 interface GanttTasksRendererProps {
@@ -244,3 +243,4 @@ export function GanttTasksRenderer({
     </>
   );
 }
+

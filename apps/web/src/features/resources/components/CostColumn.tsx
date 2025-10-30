@@ -5,7 +5,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { WBSNode } from '@/types/wbs';
+import { WBSNode } from '@/features/wbs';
 
 interface CostColumnProps {
   node: WBSNode;

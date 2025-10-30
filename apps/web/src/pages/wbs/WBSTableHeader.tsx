@@ -1,5 +1,5 @@
 import React from 'react';
-import { GanttHeader } from '@/components/schedule/GanttHeader';
+import { GanttHeader } from '@/features/schedule';
 import { type ColumnConfig } from './columnConfig';
 
 type ViewMode = 'day' | 'week' | 'month';

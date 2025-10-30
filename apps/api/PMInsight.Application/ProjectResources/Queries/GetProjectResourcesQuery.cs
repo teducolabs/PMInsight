@@ -21,12 +21,12 @@ public record GetProjectResourcesQuery : IRequest<List<ProjectResourceDto>>
 public class GetProjectResourcesQueryHandler 
     : IRequestHandler<GetProjectResourcesQuery, List<ProjectResourceDto>>
 {
-    private readonly ITenantRepository<ProjectResource> _resourceRepository;
-    private readonly ITenantRepository<WBS> _wbsRepository;
+    private readonly IRepository<ProjectResource> _resourceRepository;
+    private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
 
     public GetProjectResourcesQueryHandler(
-        ITenantRepository<ProjectResource> resourceRepository,
-        ITenantRepository<WBS> wbsRepository)
+        IRepository<ProjectResource> resourceRepository,
+        IRepository<Domain.Entities.WBS> wbsRepository)
     {
         _resourceRepository = resourceRepository;
         _wbsRepository = wbsRepository;

@@ -6,18 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Loader2, Maximize2, Minimize2, Users } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import type { WBSNode } from '@/types/wbs';
-import { flattenWBSTree } from '@/types/wbs';
-import { GanttGrid } from '@/components/schedule/GanttGrid';
-import { GanttTimeline } from '@/components/schedule/GanttTimeline';
-import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
-import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
-import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
+import { GanttGrid, GanttTimeline, GanttDependencyArrows } from '@/features/schedule';
+import { CreateWBSNodeDialog, EditWBSNodeDialog, wbsApi, type WBSNode, flattenWBSTree } from '@/features/wbs';
 import { EditResourcesDialog, ResourcePoolDialog } from '@/features/resources';
-import { wbsApi } from '@/lib/api/wbs';
-import { projectApi } from '@/lib/api/project';
-import type { Project } from '@/types/project';
-import { ProjectStatus } from '@/types/project';
+import { projectApi, type Project, ProjectStatus } from '@/features/projects';
 import { 
   parseDependencyString, 
   validateDependencies,
