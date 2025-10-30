@@ -14,7 +14,7 @@ export const projectResourceApi = {
    * Get all resources for a project (with utilization stats)
    */
   getAll: async (projectId: string): Promise<ProjectResource[]> => {
-    const response = await apiClient.get(`/v1/projects/${projectId}/resources`);
+    const response = await apiClient.get(`/projects/${projectId}/resources`);
     return response.data;
   },
 
@@ -26,7 +26,7 @@ export const projectResourceApi = {
     data: CreateProjectResourceRequest
   ): Promise<ProjectResource> => {
     const response = await apiClient.post(
-      `/v1/projects/${projectId}/resources`,
+      `/projects/${projectId}/resources`,
       data
     );
     return response.data;
@@ -41,7 +41,7 @@ export const projectResourceApi = {
     data: UpdateProjectResourceRequest
   ): Promise<ProjectResource> => {
     const response = await apiClient.put(
-      `/v1/projects/${projectId}/resources/${resourceId}`,
+      `/projects/${projectId}/resources/${resourceId}`,
       data
     );
     return response.data;
@@ -52,6 +52,6 @@ export const projectResourceApi = {
    * Will fail if resource has active assignments
    */
   delete: async (projectId: string, resourceId: string): Promise<void> => {
-    await apiClient.delete(`/v1/projects/${projectId}/resources/${resourceId}`);
+    await apiClient.delete(`/projects/${projectId}/resources/${resourceId}`);
   },
 };

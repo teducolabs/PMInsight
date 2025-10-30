@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Users, TrendingUp, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Users, TrendingUp, AlertCircle, Edit2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -7,6 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -27,7 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { projectResourceApi } from '../api/projectResourceApi';
-import type { ProjectResource, CreateProjectResourceRequest } from '../types';
+import type { ProjectResource, CreateProjectResourceRequest, UpdateProjectResourceRequest } from '../types';
 import { COMMON_ROLES } from '../types';
 
 // Temporary toast replacement
@@ -45,6 +55,12 @@ interface ResourcePoolDialogProps {
 export function ResourcePoolDialog({ open, onOpenChange, projectId }: ResourcePoolDialogProps) {
   const [resources, setResources] = useState<ProjectResource[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingResource, setEditingResource] = useState<ProjectResource | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; resourceId: string | null; resourceName: string }>({
+    open: false,
+    resourceId: null,
+    resourceName: '',
+  });
   const [formData, setFormData] = useState<CreateProjectResourceRequest>({
     resourceName: '',
     role: null,
@@ -69,19 +85,41 @@ export function ResourcePoolDialog({ open, onOpenChange, projectId }: ResourcePo
   useEffect(() => {
     if (open) {
       loadResources();
+      setEditingResource(null);
+      setFormData({
+        resourceName: '',
+        role: null,
+        hourlyRate: null,
+        monthlyCapacity: null,
+      });
     }
   }, [open, projectId]);
 
-  // Handle create
-  const handleCreate = async () => {
+  // Handle create or update
+  const handleSubmit = async () => {
     if (!formData.resourceName.trim()) {
       toast.error('Tên nguồn lực là bắt buộc');
       return;
     }
 
     try {
-      await projectResourceApi.create(projectId, formData);
-      toast.success('Tạo nguồn lực thành công');
+      if (editingResource) {
+        // Update existing resource
+        const updateData: UpdateProjectResourceRequest = {
+          resourceName: formData.resourceName,
+          role: formData.role,
+          hourlyRate: formData.hourlyRate,
+          monthlyCapacity: formData.monthlyCapacity,
+        };
+        await projectResourceApi.update(projectId, editingResource.id, updateData);
+        toast.success('Cập nhật nguồn lực thành công');
+        setEditingResource(null);
+      } else {
+        // Create new resource
+        await projectResourceApi.create(projectId, formData);
+        toast.success('Tạo nguồn lực thành công');
+      }
+      
       setFormData({
         resourceName: '',
         role: null,
@@ -90,24 +128,55 @@ export function ResourcePoolDialog({ open, onOpenChange, projectId }: ResourcePo
       });
       loadResources();
     } catch (error) {
-      console.error('Failed to create resource:', error);
-      toast.error('Không thể tạo nguồn lực');
+      console.error('Failed to save resource:', error);
+      toast.error(editingResource ? 'Không thể cập nhật nguồn lực' : 'Không thể tạo nguồn lực');
     }
   };
 
-  // Handle delete
-  const handleDelete = async (resourceId: string) => {
-    if (!confirm('Bạn có chắc muốn xóa nguồn lực này? Thao tác sẽ thất bại nếu nguồn lực đang có phân công.')) {
-      return;
-    }
+  // Handle edit
+  const handleEdit = (resource: ProjectResource) => {
+    setEditingResource(resource);
+    setFormData({
+      resourceName: resource.resourceName,
+      role: resource.role || null,
+      hourlyRate: resource.hourlyRate || null,
+      monthlyCapacity: resource.monthlyCapacity || null,
+    });
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setEditingResource(null);
+    setFormData({
+      resourceName: '',
+      role: null,
+      hourlyRate: null,
+      monthlyCapacity: null,
+    });
+  };
+
+  // Handle delete - open confirm dialog
+  const handleDeleteClick = (resource: ProjectResource) => {
+    setDeleteConfirm({
+      open: true,
+      resourceId: resource.id,
+      resourceName: resource.resourceName,
+    });
+  };
+
+  // Handle delete confirm
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.resourceId) return;
 
     try {
-      await projectResourceApi.delete(projectId, resourceId);
+      await projectResourceApi.delete(projectId, deleteConfirm.resourceId);
       toast.success('Xóa nguồn lực thành công');
       loadResources();
     } catch (error) {
       console.error('Failed to delete resource:', error);
       toast.error('Không thể xóa nguồn lực. Nguồn lực có thể đang có phân công.');
+    } finally {
+      setDeleteConfirm({ open: false, resourceId: null, resourceName: '' });
     }
   };
 
@@ -139,12 +208,33 @@ export function ResourcePoolDialog({ open, onOpenChange, projectId }: ResourcePo
           </DialogDescription>
         </DialogHeader>
 
-        {/* Create Resource Form */}
+        {/* Create/Edit Resource Form */}
         <div className="border rounded-lg p-4 bg-gray-50 space-y-4">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Thêm Nguồn lực Mới
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              {editingResource ? (
+                <>
+                  <Edit2 className="w-4 h-4" />
+                  Chỉnh sửa Nguồn lực
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Thêm Nguồn lực Mới
+                </>
+              )}
+            </h3>
+            {editingResource && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelEdit}
+                className="h-7 text-xs"
+              >
+                Hủy
+              </Button>
+            )}
+          </div>
           <div className="grid grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label htmlFor="resourceName" className="text-xs">
@@ -219,9 +309,18 @@ export function ResourcePoolDialog({ open, onOpenChange, projectId }: ResourcePo
               />
             </div>
           </div>
-          <Button onClick={handleCreate} size="sm" className="w-full">
-            <Plus className="w-4 h-4 mr-2" />
-            Thêm Nguồn lực
+          <Button onClick={handleSubmit} size="sm" className="w-full">
+            {editingResource ? (
+              <>
+                <Edit2 className="w-4 h-4 mr-2" />
+                Cập nhật Nguồn lực
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                Thêm Nguồn lực
+              </>
+            )}
           </Button>
         </div>
 
@@ -308,9 +407,19 @@ export function ResourcePoolDialog({ open, onOpenChange, projectId }: ResourcePo
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(resource.id)}
+                            onClick={() => handleEdit(resource)}
+                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(resource)}
                             className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                             disabled={!resource.isActive || (resource.assignmentCount || 0) > 0}
+                            title="Xóa"
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>
@@ -336,6 +445,30 @@ export function ResourcePoolDialog({ open, onOpenChange, projectId }: ResourcePo
           )}
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm.open} onOpenChange={(open) => !open && setDeleteConfirm({ open: false, resourceId: null, resourceName: '' })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa nguồn lực</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa nguồn lực <strong>{deleteConfirm.resourceName}</strong>?
+              <br />
+              <br />
+              Thao tác này sẽ thất bại nếu nguồn lực đang có phân công hoạt động.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
