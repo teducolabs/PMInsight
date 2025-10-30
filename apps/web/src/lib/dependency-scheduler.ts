@@ -1,4 +1,4 @@
-import { WBSNode, DependencyType } from '@/types/wbs';
+import { type WBSNode, DependencyType, type WBSNodeDependency } from '@/features/wbs';
 import { addDays, differenceInDays } from 'date-fns';
 
 /**
@@ -70,11 +70,11 @@ export function calculateCascadingUpdates(
 
   // Find all successors (tasks that depend on this node)
   const successors = flatNodes.filter(n => 
-    n.predecessors?.some(dep => dep.nodeId === movedNode.id)
+    n.predecessors?.some((dep: WBSNodeDependency) => dep.nodeId === movedNode.id)
   );
 
   for (const successor of successors) {
-    const dep = successor.predecessors?.find(d => d.nodeId === movedNode.id);
+    const dep = successor.predecessors?.find((d: WBSNodeDependency) => d.nodeId === movedNode.id);
     if (!dep) continue;
 
     let newSuccessorStart: Date | null = null;

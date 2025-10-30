@@ -1,3 +1,4 @@
+using PMInsight.Application.Resources.Dtos;
 using PMInsight.Application.WBS.Dtos;
 using PMInsight.Domain.Entities;
 
@@ -85,6 +86,26 @@ public static class WBSMapper
                 LagDays = s.LagDays
             }).ToList(),
             AssignedUserIds = node.AssignedUserIds,
+            ResourceAssignments = node.ResourceAssignments.Select(ra => new ResourceAssignmentDto
+            {
+                Id = ra.Id,
+                UserId = ra.UserId,
+                UserName = null, // Will be populated by handler if needed
+                UserEmail = null,
+                AllocationPercent = ra.AllocationPercent,
+                AssignmentStartDate = ra.AssignmentStartDate,
+                AssignmentEndDate = ra.AssignmentEndDate,
+                EstimatedHours = ra.EstimatedHours,
+                ActualHours = ra.ActualHours,
+                PlannedCost = ra.PlannedCost,
+                ActualCost = ra.ActualCost,
+                Currency = ra.Currency,
+                Role = ra.Role,
+                IsPrimary = ra.IsPrimary,
+                Notes = ra.Notes,
+                CreatedAt = ra.CreatedAt,
+                UpdatedAt = ra.UpdatedAt
+            }).ToList(),
             EstimatedHours = node.EstimatedHours,
             ActualHours = node.ActualHours,
             PlannedCost = node.PlannedCost,

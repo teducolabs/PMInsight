@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { projectApi } from '@/lib/api/project';
+import { projectApi } from '@/features/projects';
 import { WBSPage } from '@/pages/wbs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

@@ -1,3 +1,4 @@
+using PMInsight.Application.Resources.Dtos;
 using PMInsight.Domain.Entities;
 using PMInsight.Domain.Enums;
 
@@ -49,6 +50,10 @@ public record WBSNodeDto
     public List<WBSNodeDependencyDto> Successors { get; init; } = new();
     public List<string> AssignedUserIds { get; init; } = new();
     public List<string> AssignedUserNames { get; init; } = new();
+    
+    // Resource assignments (new detailed tracking)
+    public List<ResourceAssignmentDto> ResourceAssignments { get; init; } = new();
+    
     public decimal EstimatedHours { get; init; }
     public decimal ActualHours { get; init; }
     public decimal? PlannedCost { get; init; }

@@ -1,5 +1,4 @@
-import WBSNodeDependency from '@/types/wbs';
-import { DependencyType, WBSNode } from '@/types/wbs';
+import { DependencyType, type WBSNode, type WBSNodeDependency } from '@/features/wbs';
 
 /**
  * Parse dependency string into structured dependencies
@@ -137,7 +136,7 @@ export function validateDependencies(
     const predecessorNode = allNodes.find(n => n.id === dep.nodeId);
     if (predecessorNode) {
       // Check if predecessor depends on current node
-      const hasCycle = predecessorNode.predecessors?.some(p => p.nodeId === nodeId);
+      const hasCycle = predecessorNode.predecessors?.some((p: WBSNodeDependency) => p.nodeId === nodeId);
       if (hasCycle) {
         warnings.push(`⚠️ Phụ thuộc vòng tròn phát hiện với task ${predecessorNode.sequenceId || predecessorNode.name}`);
       }
