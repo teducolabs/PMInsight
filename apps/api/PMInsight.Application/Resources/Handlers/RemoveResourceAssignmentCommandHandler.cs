@@ -44,12 +44,13 @@ public class RemoveResourceAssignmentCommandHandler
             );
 
         var userId = assignment.UserId;
+        var resourceName = assignment.ResourceName;
 
         // Remove assignment
         node.ResourceAssignments.Remove(assignment);
 
-        // Update legacy AssignedUserIds if no more assignments for this user
-        if (!node.ResourceAssignments.Any(a => a.UserId == userId))
+        // Update legacy AssignedUserIds if no more assignments for this user (only if user was linked)
+        if (!string.IsNullOrEmpty(userId) && !node.ResourceAssignments.Any(a => a.UserId == userId))
         {
             node.AssignedUserIds.Remove(userId);
         }
@@ -61,9 +62,10 @@ public class RemoveResourceAssignmentCommandHandler
         await _wbsRepository.UpdateAsync(command.NodeId, wbs, cancellationToken);
 
         _logger.LogInformation(
-            "Removed resource assignment {AssignmentId} for user {UserId} from node {NodeId}",
+            "Removed resource assignment {AssignmentId} (ResourceName: {ResourceName}, UserId: {UserId}) from node {NodeId}",
             command.AssignmentId,
-            userId,
+            resourceName,
+            userId ?? "N/A",
             command.NodeId
         );
 

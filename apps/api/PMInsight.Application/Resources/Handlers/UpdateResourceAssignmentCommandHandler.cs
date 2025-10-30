@@ -9,21 +9,25 @@ namespace PMInsight.Application.Resources.Handlers;
 
 /// <summary>
 /// Handler for updating a resource assignment
+/// Now uses ProjectResource from the resource pool
 /// </summary>
 public class UpdateResourceAssignmentCommandHandler
     : IRequestHandler<UpdateResourceAssignmentCommand, ResourceAssignmentDto>
 {
     private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
+    private readonly ITenantRepository<Domain.Entities.ProjectResource> _projectResourceRepository;
     private readonly IRepository<Domain.Entities.User> _userRepository;
     private readonly ILogger<UpdateResourceAssignmentCommandHandler> _logger;
 
     public UpdateResourceAssignmentCommandHandler(
         IRepository<Domain.Entities.WBS> wbsRepository,
+        ITenantRepository<Domain.Entities.ProjectResource> projectResourceRepository,
         IRepository<Domain.Entities.User> userRepository,
         ILogger<UpdateResourceAssignmentCommandHandler> logger
     )
     {
         _wbsRepository = wbsRepository;
+        _projectResourceRepository = projectResourceRepository;
         _userRepository = userRepository;
         _logger = logger;
     }
@@ -47,6 +51,57 @@ public class UpdateResourceAssignmentCommandHandler
                 $"Resource assignment with ID {command.AssignmentId} not found"
             );
 
+        Domain.Entities.ProjectResource? projectResource = null;
+        Domain.Entities.User? user = null;
+
+        // Update ProjectResource reference if provided
+        if (command.Request.ProjectResourceId != null)
+        {
+            projectResource = await _projectResourceRepository.GetByIdAsync(
+                command.Request.ProjectResourceId,
+                cancellationToken
+            );
+            if (projectResource == null)
+                throw new KeyNotFoundException(
+                    $"ProjectResource with ID {command.Request.ProjectResourceId} not found"
+                );
+
+            // Validate ProjectResource belongs to the same project
+            if (projectResource.ProjectId != wbs.ProjectId)
+                throw new InvalidOperationException(
+                    "ProjectResource does not belong to this project"
+                );
+
+            // Validate ProjectResource is active
+            if (!projectResource.IsActive)
+                throw new InvalidOperationException("ProjectResource is not active");
+
+            // Update assignment with new resource
+            assignment.ProjectResourceId = projectResource.Id;
+            assignment.UserId = projectResource.UserId; // Update for backward compatibility
+            assignment.ResourceName = projectResource.ResourceName; // Update for backward compatibility
+            assignment.Role = projectResource.Role;
+
+            // Get user info if resource is linked to a user
+            if (!string.IsNullOrEmpty(projectResource.UserId))
+            {
+                user = await _userRepository.GetByIdAsync(projectResource.UserId, cancellationToken);
+            }
+        }
+        else if (!string.IsNullOrEmpty(assignment.ProjectResourceId))
+        {
+            // Get existing ProjectResource for DTO
+            projectResource = await _projectResourceRepository.GetByIdAsync(
+                assignment.ProjectResourceId,
+                cancellationToken
+            );
+            
+            if (projectResource != null && !string.IsNullOrEmpty(projectResource.UserId))
+            {
+                user = await _userRepository.GetByIdAsync(projectResource.UserId, cancellationToken);
+            }
+        }
+
         // Update assignment properties
         if (command.Request.AllocationPercent.HasValue)
             assignment.AllocationPercent = command.Request.AllocationPercent.Value;
@@ -62,9 +117,6 @@ public class UpdateResourceAssignmentCommandHandler
 
         if (command.Request.ActualHours.HasValue)
             assignment.ActualHours = command.Request.ActualHours.Value;
-
-        if (command.Request.Role != null)
-            assignment.Role = command.Request.Role;
 
         if (command.Request.IsPrimary.HasValue)
         {
@@ -92,21 +144,23 @@ public class UpdateResourceAssignmentCommandHandler
         await _wbsRepository.UpdateAsync(command.NodeId, wbs, cancellationToken);
 
         _logger.LogInformation(
-            "Updated resource assignment {AssignmentId} for user {UserId} on node {NodeId}",
+            "Updated resource assignment {AssignmentId} (ProjectResourceId: {ProjectResourceId}, ResourceName: {ResourceName}) on node {NodeId}",
             assignment.Id,
-            assignment.UserId,
+            assignment.ProjectResourceId,
+            assignment.ResourceName,
             command.NodeId
         );
-
-        // Get user info for DTO
-        var user = await _userRepository.GetByIdAsync(assignment.UserId, cancellationToken);
 
         return new ResourceAssignmentDto
         {
             Id = assignment.Id,
-            UserId = assignment.UserId,
+            ProjectResourceId = assignment.ProjectResourceId,
+            ResourceName = projectResource?.ResourceName ?? assignment.ResourceName,
+            UserId = projectResource?.UserId ?? assignment.UserId,
             UserName = user?.Name,
             UserEmail = user?.Email,
+            Role = projectResource?.Role ?? assignment.Role,
+            HourlyRate = projectResource?.HourlyRate,
             AllocationPercent = assignment.AllocationPercent,
             AssignmentStartDate = assignment.AssignmentStartDate,
             AssignmentEndDate = assignment.AssignmentEndDate,
@@ -115,7 +169,6 @@ public class UpdateResourceAssignmentCommandHandler
             PlannedCost = assignment.PlannedCost,
             ActualCost = assignment.ActualCost,
             Currency = assignment.Currency,
-            Role = assignment.Role,
             IsPrimary = assignment.IsPrimary,
             Notes = assignment.Notes,
             CreatedAt = assignment.CreatedAt,

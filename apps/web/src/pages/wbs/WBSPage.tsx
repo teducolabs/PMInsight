@@ -3,7 +3,7 @@ import { useProject } from '@/lib/context/ProjectContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { Plus, Loader2, Maximize2, Minimize2, Users } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { WBSNode } from '@/types/wbs';
@@ -13,7 +13,7 @@ import { GanttTimeline } from '@/components/schedule/GanttTimeline';
 import { GanttDependencyArrows } from '@/components/schedule/GanttDependencyArrows';
 import { CreateWBSNodeDialog } from '@/components/wbs/CreateWBSNodeDialog';
 import { EditWBSNodeDialog } from '@/components/wbs/EditWBSNodeDialog';
-import { EditResourcesDialog } from '@/features/resources';
+import { EditResourcesDialog, ResourcePoolDialog } from '@/features/resources';
 import { wbsApi } from '@/lib/api/wbs';
 import { projectApi } from '@/lib/api/project';
 import type { Project } from '@/types/project';
@@ -118,6 +118,7 @@ export function WBSPage() {
 
   // Resource management state (Phase 3)
   const [editingResources, setEditingResources] = useState<WBSNode | null>(null);
+  const [resourcePoolOpen, setResourcePoolOpen] = useState(false);
 
   // Data loading state
   const [loading, setLoading] = useState(true);
@@ -976,6 +977,14 @@ export function WBSPage() {
         node={editingResources}
         wbsId={wbsId || ''}
         onUpdate={reloadWBS}
+        projectId={currentProjectId || undefined}
+      />
+
+      {/* Resource Pool Dialog */}
+      <ResourcePoolDialog
+        open={resourcePoolOpen}
+        onOpenChange={setResourcePoolOpen}
+        projectId={currentProjectId || ''}
       />
 
       {/* Project Info Banner */}
@@ -1026,6 +1035,13 @@ export function WBSPage() {
             onToggleColumn={toggleColumnVisibility}
             onResetColumns={handleResetColumns}
           />
+          <Button
+            variant="outline"
+            onClick={() => setResourcePoolOpen(true)}
+          >
+            <Users className="w-4 h-4 mr-2" />
+            Quản lý Nguồn lực
+          </Button>
           <Button
             onClick={() => {
               setParentNodeForCreate(null);

@@ -1,7 +1,8 @@
 namespace PMInsight.Domain.Entities;
 
 /// <summary>
-/// ResourceAssignment - Represents assignment of a user to a WBS node
+/// ResourceAssignment - Represents assignment of a resource to a WBS node
+/// Can be linked to a system user OR be a placeholder resource (e.g., "Dev 1", "Tester 2")
 /// Tracks allocation percentage, time period, and actual effort
 /// </summary>
 public class ResourceAssignment
@@ -12,9 +13,27 @@ public class ResourceAssignment
     public string Id { get; set; } = Ulid.NewUlid().ToString();
 
     /// <summary>
-    /// User ID assigned to this task
+    /// Reference to ProjectResource from the resource pool
+    /// This is the NEW approach - resources are defined once in the pool and referenced here
     /// </summary>
-    public required string UserId { get; set; }
+    public string? ProjectResourceId { get; set; }
+
+    /// <summary>
+    /// DEPRECATED: Optional: User ID if linked to a system user
+    /// Null for placeholder resources (e.g., "Dev 1", "Senior Backend Dev")
+    /// Can be set later when user joins the system
+    /// KEPT FOR BACKWARD COMPATIBILITY - Use ProjectResourceId instead
+    /// </summary>
+    public string? UserId { get; set; }
+
+    /// <summary>
+    /// DEPRECATED: Resource name - REQUIRED
+    /// - For system users: Will be overridden by user's real name
+    /// - For placeholders: Custom name like "Dev 1", "Senior Backend Developer"
+    /// - Can be edited anytime
+    /// KEPT FOR BACKWARD COMPATIBILITY - Use ProjectResourceId instead
+    /// </summary>
+    public required string ResourceName { get; set; }
 
     /// <summary>
     /// Allocation percentage (0-100)

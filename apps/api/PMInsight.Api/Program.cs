@@ -98,6 +98,13 @@ builder.Services.AddScoped<IRepository<StakeholderEngagementAction>>(sp => {
     return new TenantRepository<StakeholderEngagementAction>(context, tenantContext.OrganizationId, "StakeholderEngagementActions");
 });
 
+// ProjectResource Repository (Resource Pool)
+builder.Services.AddScoped<ITenantRepository<ProjectResource>>(sp => {
+    var context = sp.GetRequiredService<IMongoContext>();
+    var tenantContext = sp.GetRequiredService<ITenantContext>();
+    return new TenantRepository<ProjectResource>(context, tenantContext.OrganizationId, "ProjectResources");
+});
+
 // CORS
 builder.Services.AddCors(options =>
 {

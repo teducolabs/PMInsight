@@ -1,12 +1,30 @@
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
 export function DependenciesHelpCard() {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
-    <div className="rounded-lg border bg-gradient-to-r from-amber-50 to-yellow-50 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold">
-          i
+    <div className="rounded-lg border bg-gradient-to-r from-amber-50 to-yellow-50">
+      <div 
+        className="p-4 cursor-pointer flex items-center justify-between hover:bg-amber-100/50 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold">
+            i
+          </div>
+          <h3 className="font-semibold text-amber-900">💡 Hướng dẫn nhập Dependencies (Predecessors)</h3>
         </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-amber-900 mb-2">💡 Hướng dẫn nhập Dependencies (Predecessors)</h3>
+        {isExpanded ? (
+          <ChevronUp className="w-5 h-5 text-amber-700" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-amber-700" />
+        )}
+      </div>
+      
+      {isExpanded && (
+        <div className="px-4 pb-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-amber-800 mb-2">
@@ -30,7 +48,7 @@ export function DependenciesHelpCard() {
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

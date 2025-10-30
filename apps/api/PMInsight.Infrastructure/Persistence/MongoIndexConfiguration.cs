@@ -136,6 +136,38 @@ public static class MongoIndexConfiguration
             )
         });
 
+        // ProjectResources (Resource Pool)
+        var projectResourcesCollection = context.GetCollection<ProjectResource>("ProjectResources");
+        await projectResourcesCollection.Indexes.CreateManyAsync(new[]
+        {
+            // Index for uniqueness check (ProjectId + ResourceName)
+            new CreateIndexModel<ProjectResource>(
+                Builders<ProjectResource>.IndexKeys
+                    .Ascending(x => x.ProjectId)
+                    .Ascending(x => x.ResourceName),
+                new CreateIndexOptions { Name = "idx_project_resource_name" }
+            ),
+            // Index for active resource queries
+            new CreateIndexModel<ProjectResource>(
+                Builders<ProjectResource>.IndexKeys
+                    .Ascending(x => x.ProjectId)
+                    .Ascending(x => x.IsActive),
+                new CreateIndexOptions { Name = "idx_project_active" }
+            ),
+            // Index for user-linked resources (sparse because userId is optional)
+            new CreateIndexModel<ProjectResource>(
+                Builders<ProjectResource>.IndexKeys.Ascending(x => x.UserId),
+                new CreateIndexOptions { Name = "idx_user", Sparse = true }
+            ),
+            // Organization index for tenant isolation
+            new CreateIndexModel<ProjectResource>(
+                Builders<ProjectResource>.IndexKeys
+                    .Ascending(x => x.OrganizationId)
+                    .Ascending(x => x.IsActive),
+                new CreateIndexOptions { Name = "idx_org_active" }
+            )
+        });
+
         Console.WriteLine("✓ MongoDB indexes configured successfully");
     }
 }

@@ -10,21 +10,25 @@ namespace PMInsight.Application.Resources.Handlers;
 
 /// <summary>
 /// Handler for adding a resource assignment to a WBS node
+/// Now uses ProjectResource from the resource pool
 /// </summary>
 public class AddResourceAssignmentCommandHandler
     : IRequestHandler<AddResourceAssignmentCommand, ResourceAssignmentDto>
 {
     private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
+    private readonly ITenantRepository<Domain.Entities.ProjectResource> _projectResourceRepository;
     private readonly IRepository<Domain.Entities.User> _userRepository;
     private readonly ILogger<AddResourceAssignmentCommandHandler> _logger;
 
     public AddResourceAssignmentCommandHandler(
         IRepository<Domain.Entities.WBS> wbsRepository,
+        ITenantRepository<Domain.Entities.ProjectResource> projectResourceRepository,
         IRepository<Domain.Entities.User> userRepository,
         ILogger<AddResourceAssignmentCommandHandler> logger
     )
     {
         _wbsRepository = wbsRepository;
+        _projectResourceRepository = projectResourceRepository;
         _userRepository = userRepository;
         _logger = logger;
     }
@@ -42,20 +46,44 @@ public class AddResourceAssignmentCommandHandler
         if (node == null)
             throw new KeyNotFoundException($"WBS Node with ID {command.NodeId} not found");
 
-        // Verify user exists
-        var user = await _userRepository.GetByIdAsync(command.Request.UserId, cancellationToken);
-        if (user == null)
-            throw new KeyNotFoundException($"User with ID {command.Request.UserId} not found");
+        // Validate ProjectResource exists
+        var projectResource = await _projectResourceRepository.GetByIdAsync(
+            command.Request.ProjectResourceId,
+            cancellationToken
+        );
+        if (projectResource == null)
+            throw new KeyNotFoundException(
+                $"ProjectResource with ID {command.Request.ProjectResourceId} not found"
+            );
+
+        // Validate ProjectResource belongs to the same project
+        if (projectResource.ProjectId != wbs.ProjectId)
+            throw new InvalidOperationException(
+                "ProjectResource does not belong to this project"
+            );
+
+        // Validate ProjectResource is active
+        if (!projectResource.IsActive)
+            throw new InvalidOperationException("ProjectResource is not active");
+
+        // Get user info if resource is linked to a user
+        Domain.Entities.User? user = null;
+        if (!string.IsNullOrEmpty(projectResource.UserId))
+        {
+            user = await _userRepository.GetByIdAsync(projectResource.UserId, cancellationToken);
+        }
 
         // Create new resource assignment
         var assignment = new ResourceAssignment
         {
-            UserId = command.Request.UserId,
+            ProjectResourceId = projectResource.Id,
+            UserId = projectResource.UserId, // Populate for backward compatibility
+            ResourceName = projectResource.ResourceName, // Populate for backward compatibility
             AllocationPercent = command.Request.AllocationPercent,
             AssignmentStartDate = command.Request.AssignmentStartDate,
             AssignmentEndDate = command.Request.AssignmentEndDate,
             EstimatedHours = command.Request.EstimatedHours ?? 0,
-            Role = command.Request.Role,
+            Role = projectResource.Role,
             IsPrimary = command.Request.IsPrimary,
             Notes = command.Request.Notes,
             Currency = node.Currency,
@@ -73,10 +101,11 @@ public class AddResourceAssignmentCommandHandler
         // Add assignment to node
         node.ResourceAssignments.Add(assignment);
 
-        // Update legacy AssignedUserIds for backward compatibility
-        if (!node.AssignedUserIds.Contains(command.Request.UserId))
+        // Update legacy AssignedUserIds for backward compatibility (only if user is linked)
+        if (!string.IsNullOrEmpty(assignment.UserId) &&
+            !node.AssignedUserIds.Contains(assignment.UserId))
         {
-            node.AssignedUserIds.Add(command.Request.UserId);
+            node.AssignedUserIds.Add(assignment.UserId);
         }
 
         // Recalculate rollup values
@@ -86,9 +115,10 @@ public class AddResourceAssignmentCommandHandler
         await _wbsRepository.UpdateAsync(command.NodeId, wbs, cancellationToken);
 
         _logger.LogInformation(
-            "Added resource assignment {AssignmentId} for user {UserId} to node {NodeId}",
+            "Added resource assignment {AssignmentId} (ProjectResourceId: {ProjectResourceId}, ResourceName: {ResourceName}) to node {NodeId}",
             assignment.Id,
-            assignment.UserId,
+            assignment.ProjectResourceId,
+            assignment.ResourceName,
             command.NodeId
         );
 
@@ -96,9 +126,13 @@ public class AddResourceAssignmentCommandHandler
         return new ResourceAssignmentDto
         {
             Id = assignment.Id,
-            UserId = assignment.UserId,
-            UserName = user.Name,
-            UserEmail = user.Email,
+            ProjectResourceId = assignment.ProjectResourceId,
+            ResourceName = projectResource.ResourceName,
+            UserId = projectResource.UserId,
+            UserName = user?.Name,
+            UserEmail = user?.Email,
+            Role = projectResource.Role,
+            HourlyRate = projectResource.HourlyRate,
             AllocationPercent = assignment.AllocationPercent,
             AssignmentStartDate = assignment.AssignmentStartDate,
             AssignmentEndDate = assignment.AssignmentEndDate,
@@ -107,7 +141,6 @@ public class AddResourceAssignmentCommandHandler
             PlannedCost = assignment.PlannedCost,
             ActualCost = assignment.ActualCost,
             Currency = assignment.Currency,
-            Role = assignment.Role,
             IsPrimary = assignment.IsPrimary,
             Notes = assignment.Notes,
             CreatedAt = assignment.CreatedAt,

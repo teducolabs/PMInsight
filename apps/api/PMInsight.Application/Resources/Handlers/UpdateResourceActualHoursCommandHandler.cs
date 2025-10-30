@@ -9,21 +9,25 @@ namespace PMInsight.Application.Resources.Handlers;
 
 /// <summary>
 /// Handler for updating actual hours on a resource assignment
+/// Now uses ProjectResource from the resource pool
 /// </summary>
 public class UpdateResourceActualHoursCommandHandler
     : IRequestHandler<UpdateResourceActualHoursCommand, ResourceAssignmentDto>
 {
     private readonly IRepository<Domain.Entities.WBS> _wbsRepository;
+    private readonly ITenantRepository<Domain.Entities.ProjectResource> _projectResourceRepository;
     private readonly IRepository<Domain.Entities.User> _userRepository;
     private readonly ILogger<UpdateResourceActualHoursCommandHandler> _logger;
 
     public UpdateResourceActualHoursCommandHandler(
         IRepository<Domain.Entities.WBS> wbsRepository,
+        ITenantRepository<Domain.Entities.ProjectResource> projectResourceRepository,
         IRepository<Domain.Entities.User> userRepository,
         ILogger<UpdateResourceActualHoursCommandHandler> logger
     )
     {
         _wbsRepository = wbsRepository;
+        _projectResourceRepository = projectResourceRepository;
         _userRepository = userRepository;
         _logger = logger;
     }
@@ -65,15 +69,33 @@ public class UpdateResourceActualHoursCommandHandler
             command.NodeId
         );
 
-        // Get user info for DTO
-        var user = await _userRepository.GetByIdAsync(assignment.UserId, cancellationToken);
+        // Get ProjectResource info for DTO
+        Domain.Entities.ProjectResource? projectResource = null;
+        Domain.Entities.User? user = null;
+        
+        if (!string.IsNullOrEmpty(assignment.ProjectResourceId))
+        {
+            projectResource = await _projectResourceRepository.GetByIdAsync(
+                assignment.ProjectResourceId,
+                cancellationToken
+            );
+            
+            if (projectResource != null && !string.IsNullOrEmpty(projectResource.UserId))
+            {
+                user = await _userRepository.GetByIdAsync(projectResource.UserId, cancellationToken);
+            }
+        }
 
         return new ResourceAssignmentDto
         {
             Id = assignment.Id,
-            UserId = assignment.UserId,
+            ProjectResourceId = assignment.ProjectResourceId,
+            ResourceName = projectResource?.ResourceName ?? assignment.ResourceName,
+            UserId = projectResource?.UserId ?? assignment.UserId,
             UserName = user?.Name,
             UserEmail = user?.Email,
+            Role = projectResource?.Role ?? assignment.Role,
+            HourlyRate = projectResource?.HourlyRate,
             AllocationPercent = assignment.AllocationPercent,
             AssignmentStartDate = assignment.AssignmentStartDate,
             AssignmentEndDate = assignment.AssignmentEndDate,
@@ -82,7 +104,6 @@ public class UpdateResourceActualHoursCommandHandler
             PlannedCost = assignment.PlannedCost,
             ActualCost = assignment.ActualCost,
             Currency = assignment.Currency,
-            Role = assignment.Role,
             IsPrimary = assignment.IsPrimary,
             Notes = assignment.Notes,
             CreatedAt = assignment.CreatedAt,

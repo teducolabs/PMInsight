@@ -19,7 +19,7 @@ export function ResourcesColumn({ node, width, onEditResources }: ResourcesColum
   const assignments = node.resourceAssignments || [];
   const hasResources = assignments.length > 0;
 
-  // Get primary resource
+  // Get primary resource (prefer from ProjectResource, fallback to legacy)
   const primaryResource = assignments.find(a => a.isPrimary);
 
   // Get initials for avatar
@@ -33,7 +33,8 @@ export function ResourcesColumn({ node, width, onEditResources }: ResourcesColum
   };
 
   // Get color for avatar based on string hash
-  const getAvatarColor = (id: string): string => {
+  const getAvatarColor = (id: string | undefined): string => {
+    if (!id) return 'bg-gray-500';
     const colors = [
       'bg-blue-500',
       'bg-green-500',
@@ -69,24 +70,29 @@ export function ResourcesColumn({ node, width, onEditResources }: ResourcesColum
                   <TooltipTrigger asChild>
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold cursor-pointer border-2 border-white ${getAvatarColor(
-                        assignment.userId
+                        assignment.projectResourceId || assignment.userId || undefined
                       )} ${assignment.isPrimary ? 'ring-2 ring-yellow-400' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onEditResources(node);
                       }}
                     >
-                      {getInitials(assignment.userName)}
+                      {getInitials(assignment.resourceName || assignment.userName)}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-xs">
                     <div className="text-sm">
                       <div className="font-semibold">
-                        {assignment.userName || 'Unknown User'}
+                        {assignment.resourceName || assignment.userName || 'Unknown Resource'}
                         {assignment.isPrimary && ' ⭐'}
                       </div>
                       {assignment.role && (
                         <div className="text-gray-400">{assignment.role}</div>
+                      )}
+                      {assignment.hourlyRate && (
+                        <div className="text-gray-400">
+                          Rate: ${assignment.hourlyRate}/h
+                        </div>
                       )}
                       <div className="text-gray-400">
                         Allocation: {formatAllocation(assignment.allocationPercent)}
@@ -131,7 +137,7 @@ export function ResourcesColumn({ node, width, onEditResources }: ResourcesColum
           {primaryResource && (
             <div className="flex items-center gap-1 text-xs text-gray-600 truncate flex-1">
               <span className="font-medium truncate">
-                {primaryResource.userName}
+                {primaryResource.resourceName || primaryResource.userName}
               </span>
               {primaryResource.role && (
                 <Badge variant="outline" className="text-xs py-0 px-1">
