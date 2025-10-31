@@ -83,6 +83,31 @@ export const wbsApi = {
   },
 
   /**
+   * Insert a new WBS node at a specific position (MS Project style)
+   * @param position - 'Above' (before target), 'Below' (after target), or 'Child' (as first child)
+   */
+  insertNode: async (
+    wbsId: string,
+    data: {
+      targetNodeId: string;
+      position: 'Above' | 'Below' | 'Child';
+      name: string;
+      type: 'Summary' | 'Task' | 'Milestone';
+      code?: string;
+      description?: string;
+      plannedStartDate?: string;
+      plannedEndDate?: string;
+      durationDays?: number;
+      assignedUserIds?: string[];
+      estimatedHours?: number;
+      plannedCost?: number;
+    }
+  ): Promise<WBSNode> => {
+    const response = await apiClient.post(`/wbs/${wbsId}/nodes/insert`, data);
+    return response.data;
+  },
+
+  /**
    * Update an existing WBS node
    */
   updateNode: async (

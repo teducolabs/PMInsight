@@ -26,6 +26,7 @@ interface WBSTableRowProps {
   onEditNode: (node: WBSNode) => void;
   onAddChild: (node: WBSNode) => void;
   onEditResources: (node: WBSNode) => void;
+  onShowContextMenu?: (node: WBSNode, position: { x: number; y: number }) => void;
   onSetProgressValue: (value: string) => void;
   onSetEditingProgress: (nodeId: string | null) => void;
   onProgressSave: (nodeId: string) => Promise<void>;
@@ -56,6 +57,7 @@ export function WBSTableRow({
   onEditNode,
   onAddChild,
   onEditResources,
+  onShowContextMenu,
   onSetProgressValue,
   onSetEditingProgress,
   onProgressSave,
@@ -387,11 +389,24 @@ export function WBSTableRow({
     }
   };
 
+  // Right-click handler for context menu
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onShowContextMenu) {
+      onShowContextMenu(node, { x: e.clientX, y: e.clientY });
+    }
+  };
+
   return (
     <div
-      className="flex border-b hover:bg-gray-50"
+      className="flex border-b hover:bg-gray-50 group relative"
       style={{ height: ROW_HEIGHT }}
+      onContextMenu={handleContextMenu}
     >
+      {/* Hover indicator */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+      
       {/* Render columns dynamically based on order and visibility */}
       {columns.map(col => renderColumn(col))}
     </div>

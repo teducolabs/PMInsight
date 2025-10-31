@@ -7,7 +7,15 @@ import { Plus, Loader2, Maximize2, Minimize2, Users } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { GanttGrid, GanttTimeline, GanttDependencyArrows } from '@/features/schedule';
-import { CreateWBSNodeDialog, EditWBSNodeDialog, wbsApi, type WBSNode, flattenWBSTree } from '@/features/wbs';
+import { 
+  CreateWBSNodeDialog, 
+  EditWBSNodeDialog, 
+  WBSContextMenu,
+  QuickInsertDialog,
+  wbsApi, 
+  type WBSNode, 
+  flattenWBSTree 
+} from '@/features/wbs';
 import { EditResourcesDialog, ResourcePoolDialog } from '@/features/resources';
 import { projectApi, type Project, ProjectStatus } from '@/features/projects';
 import { 
@@ -111,6 +119,20 @@ export function WBSPage() {
   // Resource management state (Phase 3)
   const [editingResources, setEditingResources] = useState<WBSNode | null>(null);
   const [resourcePoolOpen, setResourcePoolOpen] = useState(false);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    node: WBSNode;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  // Quick insert state
+  const [quickInsertOpen, setQuickInsertOpen] = useState(false);
+  const [insertMode, setInsertMode] = useState<{
+    targetNode: WBSNode;
+    position: 'above' | 'below' | 'child';
+  } | null>(null);
+
 
   // Data loading state
   const [loading, setLoading] = useState(true);
@@ -710,6 +732,55 @@ export function WBSPage() {
     }
   };
 
+  // Context menu handlers
+  const handleShowContextMenu = (node: WBSNode, position: { x: number; y: number }) => {
+    setContextMenu({ node, position });
+  };
+
+  const handleInsertAbove = (node: WBSNode) => {
+    setInsertMode({ targetNode: node, position: 'above' });
+    setQuickInsertOpen(true);
+  };
+
+  const handleInsertBelow = (node: WBSNode) => {
+    setInsertMode({ targetNode: node, position: 'below' });
+    setQuickInsertOpen(true);
+  };
+
+  const handleAddChildFromMenu = (node: WBSNode) => {
+    setInsertMode({ targetNode: node, position: 'child' });
+    setQuickInsertOpen(true);
+  };
+
+  const handleQuickInsert = async (data: { name: string; type: 'Summary' | 'Task' | 'Milestone' }) => {
+    if (!wbsId || !insertMode) return;
+
+    try {
+      // Call insert API with position
+      await wbsApi.insertNode(wbsId, {
+        targetNodeId: insertMode.targetNode.id,
+        position: insertMode.position === 'above' ? 'Above' : insertMode.position === 'below' ? 'Below' : 'Child',
+        name: data.name,
+        type: data.type,
+      });
+
+      // Reload WBS to get updated tree with new sequence IDs
+      await reloadWBS();
+
+      // Auto-expand parent if inserting child
+      if (insertMode.position === 'child') {
+        setExpandedNodes(prev => new Set([...prev, insertMode.targetNode.id]));
+      }
+
+      // Close dialog
+      setQuickInsertOpen(false);
+      setInsertMode(null);
+    } catch (error) {
+      console.error('❌ Failed to insert node:', error);
+      alert('Không thể thêm mục. Vui lòng thử lại.');
+    }
+  };
+
   // Handle create WBS node (Summary/Task/Milestone)
   const handleCreateWBSNode = async (nodeData: any) => {
     if (!currentProjectId || !wbsId) return;
@@ -927,6 +998,7 @@ export function WBSPage() {
           setCreatingNode(true);
         }}
         onEditResources={setEditingResources}
+        onShowContextMenu={handleShowContextMenu}
         onSetProgressValue={setProgressValue}
         onSetEditingProgress={setEditingProgress}
         onProgressSave={handleProgressSave}
@@ -999,6 +1071,38 @@ export function WBSPage() {
         onOpenChange={setResourcePoolOpen}
         projectId={currentProjectId || ''}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <WBSContextMenu
+          node={contextMenu.node}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
+          onInsertAbove={handleInsertAbove}
+          onInsertBelow={handleInsertBelow}
+          onAddChild={handleAddChildFromMenu}
+          onEdit={(node) => {
+            setEditingNode(node);
+            setContextMenu(null);
+          }}
+          onDelete={(node) => {
+            // TODO: Implement delete with confirmation
+            setContextMenu(null);
+            console.log('Delete node:', node.id);
+          }}
+        />
+      )}
+
+      {/* Quick Insert Dialog */}
+      {insertMode && (
+        <QuickInsertDialog
+          open={quickInsertOpen}
+          onOpenChange={setQuickInsertOpen}
+          targetNode={insertMode.targetNode}
+          position={insertMode.position}
+          onSave={handleQuickInsert}
+        />
+      )}
 
       {/* Project Info Banner */}
       <ProjectInfoBanner

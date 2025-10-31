@@ -179,6 +179,36 @@ public class WBSController : ControllerBase
     }
     
     /// <summary>
+    /// Insert a new WBS node at a specific position (MS Project style)
+    /// Supports: Above (insert before target), Below (insert after target), Child (as first child)
+    /// </summary>
+    [HttpPost("{wbsId}/nodes/insert")]
+    [ProducesResponseType(typeof(WBSNodeDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<WBSNodeDto>> InsertNode(string wbsId, InsertWBSNodeRequest request)
+    {
+        var command = new InsertWBSNodeCommand
+        {
+            WBSId = wbsId,
+            TargetNodeId = request.TargetNodeId,
+            Position = request.Position,
+            Name = request.Name,
+            Code = request.Code,
+            Description = request.Description,
+            Type = request.Type,
+            PlannedStartDate = request.PlannedStartDate,
+            PlannedEndDate = request.PlannedEndDate,
+            DurationDays = request.DurationDays,
+            AssignedUserIds = request.AssignedUserIds,
+            EstimatedHours = request.EstimatedHours,
+            PlannedCost = request.PlannedCost,
+        };
+
+        var result = await _mediator.Send(command);
+        return CreatedAtAction(nameof(GetWBS), new { id = wbsId }, result);
+    }
+    
+    /// <summary>
     /// Update a WBS node
     /// </summary>
     [HttpPut("{wbsId}/nodes/{nodeId}")]

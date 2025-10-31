@@ -194,3 +194,10 @@ public enum EngagementActionStatus
     Completed,
     Skipped
 }
+
+public enum InsertPosition
+{
+    Above,   // Insert above target node (same level)
+    Below,   // Insert below target node (same level)
+    Child    // Insert as child of target node
+}

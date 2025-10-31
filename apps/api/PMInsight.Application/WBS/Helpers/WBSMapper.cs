@@ -227,4 +227,131 @@ public static class WBSMapper
         
         return false;
     }
+    
+    /// <summary>
+    /// Find parent node and sibling list for a given node ID
+    /// Returns (parentNode, siblingList, indexInList)
+    /// </summary>
+    public static (WBSNode? parent, List<WBSNode> siblings, int index) FindNodeLocation(
+        List<WBSNode> tree, 
+        string nodeId, 
+        WBSNode? parent = null)
+    {
+        var siblings = parent == null ? tree : parent.Children;
+        
+        for (int i = 0; i < siblings.Count; i++)
+        {
+            if (siblings[i].Id == nodeId)
+            {
+                return (parent, siblings, i);
+            }
+            
+            var result = FindNodeLocation(siblings[i].Children, nodeId, siblings[i]);
+            if (result.siblings != null && result.index >= 0)
+            {
+                return result;
+            }
+        }
+        
+        return (null, null!, -1);
+    }
+    
+    /// <summary>
+    /// Insert a node at a specific position relative to a target node
+    /// </summary>
+    public static bool InsertNodeAtPosition(
+        List<WBSNode> tree,
+        WBSNode newNode,
+        string targetNodeId,
+        Domain.Enums.InsertPosition position)
+    {
+        var (parent, siblings, targetIndex) = FindNodeLocation(tree, targetNodeId);
+        
+        if (siblings == null || targetIndex < 0)
+            return false;
+        
+        var targetNode = siblings[targetIndex];
+        
+        switch (position)
+        {
+            case Domain.Enums.InsertPosition.Above:
+                // Insert before target (same level)
+                newNode.Level = targetNode.Level;
+                newNode.SortOrder = targetNode.SortOrder;
+                siblings.Insert(targetIndex, newNode);
+                
+                // Shift sort orders of nodes after this one
+                for (int i = targetIndex + 1; i < siblings.Count; i++)
+                {
+                    siblings[i].SortOrder++;
+                }
+                break;
+                
+            case Domain.Enums.InsertPosition.Below:
+                // Insert after target (same level)
+                newNode.Level = targetNode.Level;
+                newNode.SortOrder = targetNode.SortOrder + 1;
+                siblings.Insert(targetIndex + 1, newNode);
+                
+                // Shift sort orders of nodes after this one
+                for (int i = targetIndex + 2; i < siblings.Count; i++)
+                {
+                    siblings[i].SortOrder++;
+                }
+                break;
+                
+            case Domain.Enums.InsertPosition.Child:
+                // Insert as first child of target
+                newNode.Level = targetNode.Level + 1;
+                newNode.SortOrder = 0;
+                
+                // Shift sort orders of existing children
+                foreach (var child in targetNode.Children)
+                {
+                    child.SortOrder++;
+                }
+                
+                targetNode.Children.Insert(0, newNode);
+                break;
+                
+            default:
+                return false;
+        }
+        
+        return true;
+    }
+    
+    /// <summary>
+    /// Renumber all nodes with sequential IDs (1, 2, 3...) for easy reference
+    /// Also updates WBS codes (1.1, 1.2, etc.)
+    /// </summary>
+    public static void AssignSequenceIds(List<WBSNode> tree)
+    {
+        var sequenceCounter = 1;
+        
+        void AssignRecursive(List<WBSNode> nodes, string parentCode = "")
+        {
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+                
+                // Assign sequence ID
+                var sequence = sequenceCounter++;
+                
+                // Update WBS code
+                var code = string.IsNullOrEmpty(parentCode) 
+                    ? $"{i + 1}" 
+                    : $"{parentCode}.{i + 1}";
+                node.Code = $"WBS-{code}";
+                
+                // Recursively assign to children
+                if (node.Children.Any())
+                {
+                    AssignRecursive(node.Children, code);
+                }
+            }
+        }
+        
+        AssignRecursive(tree);
+    }
 }
