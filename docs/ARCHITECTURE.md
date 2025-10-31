@@ -1,207 +1,162 @@
-# PMInsight Architecture Overview
+# Frontend Architecture
 
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client Layer                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Browser    │  │    Mobile    │  │  Desktop     │          │
-│  │   (React)    │  │   (Future)   │  │  (Future)    │          │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
-│         │                  │                  │                  │
-│         └──────────────────┼──────────────────┘                  │
-│                            │                                     │
-└────────────────────────────┼─────────────────────────────────────┘
-                             │
-                             │ HTTPS / WSS
-                             │
-┌────────────────────────────┼─────────────────────────────────────┐
-│                  API Gateway / Load Balancer                      │
-│                    (Azure / Cloudflare)                           │
-└────────────────────────────┼─────────────────────────────────────┘
-                             │
-┌────────────────────────────┼─────────────────────────────────────┐
-│                     ASP.NET Core API                              │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                    API Layer                              │   │
-│  │  Controllers │ Middlewares │ Filters │ SignalR Hubs      │   │
-│  └──────────────┬───────────────────────────────────────────┘   │
-│                 │                                                 │
-│  ┌──────────────┴───────────────────────────────────────────┐   │
-│  │                 Application Layer (MediatR)               │   │
-│  │  Commands │ Queries │ Validators │ DTOs │ AutoMapper     │   │
-│  └──────────────┬───────────────────────────────────────────┘   │
-│                 │                                                 │
-│  ┌──────────────┴───────────────────────────────────────────┐   │
-│  │                    Domain Layer                           │   │
-│  │  Entities │ Value Objects │ Domain Events │ Interfaces   │   │
-│  └──────────────┬───────────────────────────────────────────┘   │
-│                 │                                                 │
-│  ┌──────────────┴───────────────────────────────────────────┐   │
-│  │                Infrastructure Layer                       │   │
-│  │  MongoDB │ Redis │ SendGrid │ R2 Storage │ Hangfire      │   │
-│  └──────────────┬───────────────────────────────────────────┘   │
-└─────────────────┼───────────────────────────────────────────────┘
-                  │
-                  │
-┌─────────────────┼───────────────────────────────────────────────┐
-│             External Services                                     │
-│  ┌─────────────┼─────────────┐  ┌────────────────────────┐      │
-│  │   MongoDB Atlas            │  │  Cloudflare R2         │      │
-│  │  (Primary Database)        │  │  (File Storage)        │      │
-│  └────────────────────────────┘  └────────────────────────┘      │
-│  ┌────────────────────────────┐  ┌────────────────────────┐      │
-│  │   Redis Cloud              │  │  SendGrid              │      │
-│  │   (Cache & Sessions)       │  │  (Email Service)       │      │
-│  └────────────────────────────┘  └────────────────────────┘      │
-│  ┌────────────────────────────┐                                  │
-│  │   OpenTelemetry Collector  │                                  │
-│  │   (Observability)           │                                  │
-│  └────────────────────────────┘                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-## Data Flow
-
-### 1. User Request Flow
+## Cấu trúc thư mục
 
 ```
-User Action (UI) 
-  → React Component 
-  → API Client (Axios) 
-  → Backend API Controller 
-  → MediatR Handler 
-  → Repository 
-  → MongoDB
-  ← Response propagates back
+src/
+├── components/           # Shared components (UI + Layout only)
+│   ├── layout/          # Layout components (AppLayout, Header, Sidebar, etc.)
+│   └── ui/              # Reusable UI components (Button, Dialog, Input, etc.)
+│
+├── features/            # Feature modules (Domain-specific)
+│   ├── projects/        # Projects management feature
+│   │   ├── components/  # Project-specific components
+│   │   ├── api/         # Project API calls
+│   │   ├── types/       # Project-specific types
+│   │   └── index.ts     # Public exports
+│   │
+│   ├── resources/       # Resource management feature
+│   │   ├── components/  # Resource-specific components
+│   │   ├── api/         # Resource API calls
+│   │   ├── types/       # Resource-specific types
+│   │   └── index.ts     # Public exports
+│   │
+│   ├── schedule/        # Gantt/Schedule feature
+│   │   ├── components/  # Gantt chart components
+│   │   ├── types/       # Schedule-specific types
+│   │   └── index.ts     # Public exports
+│   │
+│   ├── stakeholders/    # Stakeholders management feature
+│   │   ├── components/  # Stakeholder-specific components
+│   │   ├── api/         # Stakeholder API calls
+│   │   ├── types/       # Stakeholder-specific types
+│   │   └── index.ts     # Public exports
+│   │
+│   └── wbs/             # WBS management feature
+│       ├── components/  # WBS-specific components
+│       ├── api/         # WBS API calls
+│       ├── types/       # WBS-specific types
+│       └── index.ts     # Public exports
+│
+├── pages/               # Page components (use features)
+├── lib/                 # Utilities, contexts, hooks
+│   ├── api/            # Shared API utilities (client.ts only)
+│   └── context/        # React contexts
+└── types/               # ❌ REMOVED - Types now in features
 ```
 
-### 2. Authentication Flow
+## Nguyên tắc tổ chức
 
-```
-Login Request
-  → AuthController.Login()
-  → LoginCommandHandler
-  → Validate credentials (PasswordHasher)
-  → Generate JWT + RefreshToken
-  → Store RefreshToken in DB
-  → Return tokens to client
-  → Client stores in localStorage
-  → Subsequent requests include JWT in Authorization header
-```
+### 1. **components/** - Shared Components Only
+- Chỉ chứa UI components dùng chung cho toàn hệ thống
+- **layout/**: AppLayout, Header, Sidebar, Footer, ProjectSelector
+- **ui/**: Button, Dialog, Input, Select, Table, Badge, etc.
 
-### 3. Multi-Tenant Isolation
-
+### 2. **features/** - Domain-Specific Modules
+Mỗi feature module có cấu trúc:
 ```
-Every request:
-  → JWT decoded → Extract organizationId from claims
-  → Middleware injects organizationId into context
-  → Repository filters by organizationId automatically
-  → Ensures tenant isolation
+feature-name/
+├── components/      # React components
+├── api/            # API service calls (optional)
+├── types/          # TypeScript interfaces (optional)
+├── hooks/          # Custom hooks (optional)
+└── index.ts        # Public exports
 ```
 
-## Key Design Patterns
+**Quy tắc:**
+- Mỗi feature module phải có file `index.ts` để export public API
+- Components chỉ export những gì cần thiết
+- API calls được tổ chức trong `api/` folder
+- Types được define trong `types/` folder
 
-### CQRS (Command Query Responsibility Segregation)
+### 3. **pages/** - Page Components
+- Import từ features thông qua barrel exports
+- Không import trực tiếp từ `components/` của feature
+- Example:
+  ```typescript
+  // ❌ Bad
+  import { ProjectsTable } from '@/features/projects/components/ProjectsTable';
+  
+  // ✅ Good
+  import { ProjectsTable } from '@/features/projects';
+  ```
 
-- **Commands**: Mutate state (Create, Update, Delete)
-- **Queries**: Read state (Get, List, Search)
-- **MediatR**: Orchestrates command/query handling
+## Import Rules
 
-Example:
-```csharp
-// Command
-public record CreateProjectCommand(CreateProjectDto Dto) : IRequest<ProjectDto>;
+### Trong Pages
+```typescript
+// UI components
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 
-// Handler
-public class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand, ProjectDto>
-{
-    public async Task<ProjectDto> Handle(CreateProjectCommand request, CancellationToken ct)
-    {
-        // Validation → Business logic → Save to DB → Return DTO
-    }
-}
+// Layout components
+import { AppLayout } from '@/components/layout/AppLayout';
 
-// Controller
-[HttpPost]
-public async Task<ActionResult<ProjectDto>> CreateProject(CreateProjectDto dto)
-{
-    var result = await _mediator.Send(new CreateProjectCommand(dto));
-    return CreatedAtAction(nameof(GetProject), new { id = result.Id }, result);
-}
+// Feature components (with types and API)
+import { ProjectsTable, CreateProjectDialog, projectApi, type Project, ProjectStatus } from '@/features/projects';
+import { ResourcePoolDialog, projectResourceApi, type ProjectResource } from '@/features/resources';
+import { GanttGrid, GanttTimeline } from '@/features/schedule';
+import { StakeholderTable, stakeholderApi, type Stakeholder } from '@/features/stakeholders';
+import { CreateWBSNodeDialog, wbsApi, type WBSNode } from '@/features/wbs';
 ```
 
-### Repository Pattern
+### Trong Features
+```typescript
+// Internal imports use relative paths
+import { projectApi } from '../api';
+import { type Project, ProjectStatus } from '../types';
 
-- Abstracts data access
-- Provides consistent interface
-- Supports unit testing (mocking)
+// Features có thể import UI components
+import { Button } from '@/components/ui/button';
 
-```csharp
-public interface IRepository<T>
-{
-    Task<T?> GetByIdAsync(string id);
-    Task<List<T>> FindAsync(Expression<Func<T, bool>> predicate);
-    Task<T> CreateAsync(T entity);
-    Task<bool> UpdateAsync(string id, T entity);
-    Task<bool> DeleteAsync(string id);
-}
+// Features KHÔNG nên import từ features khác (tránh circular dependencies)
+// Nếu cần share logic → move to lib/
 ```
 
-### Soft Delete
+## Benefits
 
-- Never physically delete data
-- Set `DeletedAt` timestamp
-- All queries filter by `DeletedAt == null`
+1. **Clear Separation of Concerns**: UI components vs Domain logic
+2. **Better Scalability**: Dễ dàng thêm features mới
+3. **Code Reusability**: Shared components được tái sử dụng tốt hơn
+4. **Maintainability**: Dễ tìm và sửa code theo domain
+5. **Testability**: Dễ viết unit tests cho từng feature module
+6. **Team Collaboration**: Nhiều dev có thể làm việc độc lập trên các features khác nhau
 
-### Audit Trail
+## Migration Completed
 
-- Every mutation logs to `activities` collection
-- Captures: Who, What, When, Where (IP), Why (metadata)
+✅ **projects** module → `features/projects/` (components + api + types)
+✅ **stakeholders** module → `features/stakeholders/` (components + api + types)
+✅ **wbs** module → `features/wbs/` (components + api + types)
+✅ **schedule** module → `features/schedule/` (components + types)
+✅ **resources** module → `features/resources/` (đã có sẵn - components + api + types)
 
-## Security Layers
+✅ All import paths updated
+✅ All barrel exports created (index.ts for components, api, types)
+✅ ❌ Removed old `types/` directory - types now in features
+✅ ❌ Removed old API files from `lib/api/` - kept only client.ts
+✅ No compilation errors
 
-1. **Network**: HTTPS, CORS, CSP headers
-2. **Authentication**: JWT tokens, refresh tokens, 2FA
-3. **Authorization**: RBAC (roles + claims), tenant isolation
-4. **Input Validation**: FluentValidation (backend), Zod (frontend)
-5. **Rate Limiting**: Per-user/IP limits
-6. **OWASP Top 10**: XSS, CSRF, SQL Injection (N/A - NoSQL), etc.
+## Complete Feature Structure
 
-## Performance Optimizations
+Each feature module now has complete isolation:
+```
+feature-name/
+├── components/
+│   ├── Component1.tsx
+│   ├── Component2.tsx
+│   └── index.ts          # Export components
+├── api/
+│   ├── featureName.ts    # API service
+│   └── index.ts          # Export API
+├── types/
+│   ├── featureName.ts    # Type definitions
+│   └── index.ts          # Export types
+└── index.ts              # Export everything (components, api, types)
+```
 
-1. **Caching**: Redis for frequently accessed data (user profiles, settings)
-2. **Database Indexes**: Multi-field indexes on organizationId + common filters
-3. **Pagination**: Cursor-based pagination for large datasets
-4. **Lazy Loading**: React lazy() for code splitting
-5. **CDN**: Static assets served via CDN (Cloudflare/Vercel)
-6. **Compression**: Gzip/Brotli for API responses
-
-## Scalability
-
-### Horizontal Scaling
-
-- **API**: Stateless, scale via load balancer
-- **MongoDB**: Sharding by organizationId
-- **Redis**: Clustered for high availability
-
-### Background Jobs (Hangfire)
-
-- Offload heavy tasks (reports, emails, backups)
-- Scheduled jobs (daily EVM calculation, weekly reports)
-- Retry logic for transient failures
-
-## Monitoring & Observability
-
-- **Logs**: Serilog → Seq/ELK/Application Insights
-- **Metrics**: OpenTelemetry → Prometheus/Grafana
-- **Traces**: Distributed tracing for request flows
-- **Health Checks**: `/health` endpoint for uptime monitoring
-- **Alerts**: Critical errors, high latency, resource exhaustion
-
----
-
-## Next Steps
-
-Refer to **IMPLEMENTATION.md** for phase-by-phase development guidance.
+This provides:
+- **Complete encapsulation**: Each feature is self-contained
+- **Clear dependencies**: Features only depend on shared lib and UI
+- **Easy testing**: Mock APIs and types per feature
+- **Better tree-shaking**: Import only what you need
+- **Domain-driven**: Each feature represents a business domain

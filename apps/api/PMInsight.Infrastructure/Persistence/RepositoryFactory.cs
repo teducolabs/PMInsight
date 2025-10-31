@@ -1,7 +1,7 @@
 using System;
+using PMInsight.Application.Services;
 using PMInsight.Domain.Common;
 using PMInsight.Domain.Entities;
-using PMInsight.Application.Services;
 
 namespace PMInsight.Infrastructure.Persistence;
 
@@ -16,15 +16,20 @@ public class RepositoryFactory
         _tenantContext = tenantContext;
     }
 
-    public IRepository<TUser> Create<TUser>() where TUser : BaseEntity
+    public IRepository<TUser> Create<TUser>()
+        where TUser : BaseEntity
     {
         if (typeof(TUser).IsAssignableTo(typeof(TenantEntity)))
         {
-            var instance = Activator.CreateInstance(
-                typeof(TenantRepository<>).MakeGenericType(typeof(TUser)),
-                _context,
-                _tenantContext.OrganizationId)
-                ?? throw new InvalidOperationException($"Failed to create repository for {typeof(TUser).Name}");
+            var instance =
+                Activator.CreateInstance(
+                    typeof(TenantRepository<>).MakeGenericType(typeof(TUser)),
+                    _context,
+                    _tenantContext.OrganizationId
+                )
+                ?? throw new InvalidOperationException(
+                    $"Failed to create repository for {typeof(TUser).Name}"
+                );
 
             return (IRepository<TUser>)instance;
         }

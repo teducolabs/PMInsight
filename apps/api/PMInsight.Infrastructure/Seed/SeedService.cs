@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
 using MongoDB.Driver;
 using PMInsight.Application.Common.Interfaces;
 using PMInsight.Domain.Entities;
 using PMInsight.Domain.Enums;
-using System.Text.Json;
 using TaskAlias = System.Threading.Tasks.Task;
 
 namespace PMInsight.Infrastructure.Seed;
@@ -31,23 +31,24 @@ public class SeedService : ISeedService
     {
         var orgs = _database.GetCollection<Organization>("Organizations");
         var existing = await orgs.Find(o => o.Name == "Demo Org").FirstOrDefaultAsync();
-        if (existing != null) return existing;
-        
+        if (existing != null)
+            return existing;
+
         var org = new Organization
         {
             OrganizationId = string.Empty, // Will be self-referencing after save
             Name = "Demo Org",
             Slug = "demo-org",
-            Description = "Sample organization for testing"
+            Description = "Sample organization for testing",
         };
-        
+
         // MongoDB will generate the Id
         await orgs.InsertOneAsync(org);
-        
+
         // Update OrganizationId to self-reference
         org.OrganizationId = org.Id;
         await orgs.ReplaceOneAsync(o => o.Id == org.Id, org);
-        
+
         return org;
     }
 
@@ -55,8 +56,9 @@ public class SeedService : ISeedService
     {
         var users = _database.GetCollection<User>("Users");
         var existing = await users.Find(u => u.Email == "admin@demo.com").FirstOrDefaultAsync();
-        if (existing != null) return existing;
-        
+        if (existing != null)
+            return existing;
+
         var user = new User
         {
             OrganizationId = orgId,
@@ -64,9 +66,9 @@ public class SeedService : ISeedService
             Name = "Admin User",
             PasswordHash = _passwordHasher.HashPassword(null, "Admin@123"),
             Status = UserStatus.Active,
-            Roles = new List<UserRole> { UserRole.Admin }
+            Roles = new List<UserRole> { UserRole.Admin },
         };
-        
+
         await users.InsertOneAsync(user);
         return user;
     }
@@ -75,7 +77,8 @@ public class SeedService : ISeedService
     {
         var projects = _database.GetCollection<Project>("Projects");
         var existingCount = await projects.CountDocumentsAsync(p => p.OrganizationId == orgId);
-        if (existingCount > 0) return; // Already seeded
+        if (existingCount > 0)
+            return; // Already seeded
 
         var sampleProjects = new List<Project>
         {
@@ -93,7 +96,7 @@ public class SeedService : ISeedService
                 Budget = 150000000,
                 Currency = "VND",
                 Progress = 65,
-                Health = "Green"
+                Health = "Green",
             },
             new Project
             {
@@ -109,7 +112,7 @@ public class SeedService : ISeedService
                 Budget = 300000000,
                 Currency = "VND",
                 Progress = 25,
-                Health = "Yellow"
+                Health = "Yellow",
             },
             new Project
             {
@@ -125,7 +128,7 @@ public class SeedService : ISeedService
                 Budget = 200000000,
                 Currency = "VND",
                 Progress = 80,
-                Health = "Green"
+                Health = "Green",
             },
             new Project
             {
@@ -141,7 +144,7 @@ public class SeedService : ISeedService
                 Budget = 500000000,
                 Currency = "VND",
                 Progress = 15,
-                Health = "Green"
+                Health = "Green",
             },
             new Project
             {
@@ -157,7 +160,7 @@ public class SeedService : ISeedService
                 Budget = 400000000,
                 Currency = "VND",
                 Progress = 40,
-                Health = "Red"
+                Health = "Red",
             },
             new Project
             {
@@ -173,8 +176,8 @@ public class SeedService : ISeedService
                 Budget = 50000000,
                 Currency = "VND",
                 Progress = 100,
-                Health = "Green"
-            }
+                Health = "Green",
+            },
         };
 
         await projects.InsertManyAsync(sampleProjects);
