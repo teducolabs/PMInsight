@@ -18,7 +18,7 @@ export function ProjectInfoBanner({
   currentPhase,
   progress,
 }: ProjectInfoBannerProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
   const today = new Date();

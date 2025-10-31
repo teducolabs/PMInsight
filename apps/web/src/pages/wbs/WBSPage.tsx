@@ -360,23 +360,31 @@ export function WBSPage() {
 
     // Generate columns based on viewMode
     let cols: Date[] = [];
+    let daysPerColumn = 1;
+    
     if (viewMode === 'day') {
+      daysPerColumn = 1;
       let current = new Date(start);
       while (current <= end) {
         cols.push(new Date(current));
         current = addDays(current, 1);
       }
     } else if (viewMode === 'week') {
+      daysPerColumn = 7;
       let current = new Date(start);
       while (current <= end) {
         cols.push(new Date(current));
         current = addDays(current, 7);
       }
     } else if (viewMode === 'month') {
+      daysPerColumn = 30; // Approximation for positioning
       let current = new Date(start);
       while (current <= end) {
         cols.push(new Date(current));
-        current = addDays(current, 30);
+        // Move to next month properly
+        const nextMonth = new Date(current);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        current = nextMonth;
       }
     }
 
@@ -384,10 +392,14 @@ export function WBSPage() {
       startDate: start,
       ganttColumns: cols,
       columnWidth: width,
+      daysPerColumn,
     };
   }, [viewMode, wbsNodes]);
 
   const totalWidth = ganttColumns.length * columnWidth;
+  const { daysPerColumn } = useMemo(() => ({ 
+    daysPerColumn: viewMode === 'day' ? 1 : viewMode === 'week' ? 7 : 30 
+  }), [viewMode]);
 
   // Calculate task position in Gantt (for Task/Milestone nodes)
   const getTaskPosition = (node: WBSNode) => {
@@ -396,16 +408,20 @@ export function WBSPage() {
     const taskStart = new Date(node.plannedStartDate);
     const taskEnd = new Date(node.plannedEndDate);
 
-    // Calculate which column (week) the task starts in
+    // Calculate days since start
     const daysSinceStart = Math.floor((taskStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const weekIndex = Math.floor(daysSinceStart / 7);
+    
+    // Calculate which column the task starts in based on viewMode
+    const columnIndex = Math.floor(daysSinceStart / daysPerColumn);
 
     // Calculate task duration in days
     const taskDuration = Math.max(1, Math.ceil((taskEnd.getTime() - taskStart.getTime()) / (1000 * 60 * 60 * 24)));
-    const weeksSpan = Math.ceil(taskDuration / 7);
+    
+    // Calculate how many columns this task spans
+    const columnsSpan = Math.ceil(taskDuration / daysPerColumn);
 
-    const x = weekIndex * columnWidth;
-    const width = weeksSpan * columnWidth;
+    const x = columnIndex * columnWidth;
+    const width = columnsSpan * columnWidth;
 
     // Find row index for y position - return null if node is not visible
     const rowIndex = visibleRows.findIndex(r => r.node.id === node.id);
@@ -421,16 +437,20 @@ export function WBSPage() {
     const dateRange = getWBSNodeDateRange(node);
     if (!dateRange) return null;
 
-    // Calculate which column (week) the WBS starts in
+    // Calculate days since start
     const daysSinceStart = Math.floor((dateRange.startDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const weekIndex = Math.floor(daysSinceStart / 7);
+    
+    // Calculate which column the WBS starts in based on viewMode
+    const columnIndex = Math.floor(daysSinceStart / daysPerColumn);
 
     // Calculate duration in days
     const duration = Math.max(1, Math.ceil((dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24)));
-    const weeksSpan = Math.ceil(duration / 7);
+    
+    // Calculate how many columns this WBS spans
+    const columnsSpan = Math.ceil(duration / daysPerColumn);
 
-    const x = weekIndex * columnWidth;
-    const width = weeksSpan * columnWidth;
+    const x = columnIndex * columnWidth;
+    const width = columnsSpan * columnWidth;
 
     return { x, width, dateRange };
   };
@@ -584,7 +604,8 @@ export function WBSPage() {
     if (!draggingTask || !dragMode || !svgRef.current) return;
 
     const deltaX = e.clientX - dragStartX;
-    const daysDelta = Math.round((deltaX / columnWidth) * 7); // Convert pixels to days
+    // Convert pixels to days based on current viewMode
+    const daysDelta = Math.round((deltaX / columnWidth) * daysPerColumn);
 
     const node = findNodeById(wbsNodes, draggingTask);
     if (!node) return;
